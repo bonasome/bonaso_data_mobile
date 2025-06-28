@@ -4,7 +4,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from 'react-native-reanimated';
 
 //change timer back when out of development!!!!!!!
-export const InactivityProvider = ({ children, onTimeout, timeout=30000000}) => {
+export const InactivityProvider = ({ children, onTimeout, timeout=3000000}) => {
     const timer = useRef(null);
     const appState = useRef(AppState.currentState);
 
