@@ -9,7 +9,8 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "API_URL": "https://bonasodataserver-production.up.railway.app"
     },
     "production": {
       "autoIncrement": true
