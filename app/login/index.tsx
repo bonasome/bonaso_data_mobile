@@ -35,7 +35,7 @@ export default function Login(){
     const router = useRouter();
     const today = new Date();
     const onSubmit = async (data) => {
-        const dn = process.env.EXPO_PUBLIC_DOMAIN_NAME
+        const dn = process.env.API_URL
         setLoading(true);
         const connected = await checkServerConnection(`${dn}/api/users/test-connection/`);
         const username = data.username

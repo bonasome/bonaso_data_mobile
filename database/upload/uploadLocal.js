@@ -12,16 +12,16 @@ async function getSubcatNames(interactionId) {
 }
 
 export default async function syncRespondents() {
+    console.log('syncing')
     const result = await querySelector(`SELECT id FROM respondents WHERE synced = 0`);
-    if (!result.length) 
-        {
-            console.log("No respondents to sync");
-            return {'more': false, 'status': 'success'}
-        };
+    if (!result.length) {
+        console.log("No respondents to sync");
+        return {'more': false, 'status': 'success'}
+    };
 
     let more = result.length > 20;
     const respondents = [];
-
+    let ids = []
     for (let i = 0; i < Math.min(20, result.length); i++) {
         const id = result[i].id;
         try {
@@ -46,9 +46,8 @@ export default async function syncRespondents() {
             respondentData.interactions = interactions;
             respondentData.sensitive_info = sensitiveInfoData;
 
-            console.log('data', respondentData)
-            console.log('interactions', respondentData.interactions)
             respondents.push(respondentData);
+            ids.push(id)
         } 
         catch (err) {
             console.error(`Error preparing respondent ${id}:`, err);
@@ -64,8 +63,7 @@ export default async function syncRespondents() {
         if (!res.ok) throw new Error(`Failed to sync respondents`);
         const created = await res.json(); // optional use
 
-        for (const r of respondents) {
-            const id = r.id;
+        for (const id of created.local_ids) {
             await queryWriter(`UPDATE respondents SET synced = 1 WHERE id = ?`, [id]);
             await queryWriter(`UPDATE respondent_kp_status SET synced = 1 WHERE respondent = ?`, [id]);
             await queryWriter(`UPDATE respondent_disability_status SET synced = 1 WHERE respondent = ?`, [id]);

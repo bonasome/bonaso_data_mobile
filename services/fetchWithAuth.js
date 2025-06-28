@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 async function refreshAccessToken() {
 
-    const dn = process.env.EXPO_PUBLIC_DOMAIN_NAME
+    const dn = process.env.API_URL
     const refreshToken = await SecureStore.getItemAsync('refreshToken');
     if (!refreshToken) throw new Error('No refresh token available');
 
@@ -25,7 +25,7 @@ async function refreshAccessToken() {
 
 export default async function fetchWithAuth(url, options = {}, retry = true) {
     let token = await SecureStore.getItemAsync('accessToken');
-    const dn = process.env.EXPO_PUBLIC_DOMAIN_NAME
+    const dn = process.API_URL
     const headers = {
         'Content-Type': 'application/json',
         ...(options.headers || {}),

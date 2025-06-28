@@ -6,10 +6,19 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+            "API_URL": "http://192.168.8.138:8000",
+            "APP_ENV": "development"
+        }
     },
     "preview": {
-      "distribution": "internal"
+        "developmentClient": false,
+        "distribution": "internal",
+        "env": {
+            "API_URL": "https://bonasodataserver-production.up.railway.app",
+            "APP_ENV": "test"
+        }
     },
     "production": {
       "autoIncrement": true

@@ -11,6 +11,7 @@ import uploadLocal from '@/database/upload/uploadLocal';
 import fetchWithAuth from "@/services/fetchWithAuth";
 import { useEffect } from "react";
 
+
 export default function Index() {
     //const { signOut } = useAuth();
     const { isServerReachable } = useConnection();

@@ -19,7 +19,6 @@ export default async function organizeRespondentPayload(respondentId) {
         if (!result.length) throw new Error("Respondent not found");
 
         const respondent = result[0];
-
         // Prepare respondent data for RespondentSerializer (don't include id, since it was local only)
         const respondentData = {
             uuid: respondent.uuid,
@@ -38,6 +37,7 @@ export default async function organizeRespondentPayload(respondentId) {
             dob: respondent.dob, // should be ISO format already
             age_range: respondent.age_range,
             updated_by: null,
+            local_id: respondentId
         };
 
         // Prepare sensitive info data for SensitiveInfoSerializer
@@ -50,8 +50,6 @@ export default async function organizeRespondentPayload(respondentId) {
             kp_status_names: await getStatusNames("respondent_kp_status", respondent.id) || [],
             disability_status_names: await getStatusNames("respondent_disability_status", respondent.id) || [],
         };
-        console.log(sensitiveInfoData)
-        console.log('here', sensitiveInfoData)
         return {
             respondentData,
             sensitiveInfoData,
