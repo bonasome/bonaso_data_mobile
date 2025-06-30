@@ -3,8 +3,9 @@ export default async function checkServerConnection(url, options = {}){
     const {timeout = 8000 } = options;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
-    const dn = process.env.API_URL
+    const dn = process.env.EXPO_PUBLIC_API_URL
     try{
+        console.log(`${dn}/api/users/test-connection/`)
         const response = await fetch(`${dn}/api/users/test-connection/`, 
             {method:'HEAD', signal: controller.signal });
         clearTimeout(timer)

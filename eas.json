@@ -6,11 +6,19 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+            "EXPO_PUBLIC_API_URL": "https://bonasodataserver-production.up.railway.app",
+            "APP_ENV": "preview"
+      }
+      
     },
     "preview": {
       "distribution": "internal",
-      "API_URL": "https://bonasodataserver-production.up.railway.app"
+      "env": {
+            "EXPO_PUBLIC_API_URL": "https://bonasodataserver-production.up.railway.app",
+            "APP_ENV": "preview"
+      }
     },
     "production": {
       "autoIncrement": true

@@ -15,15 +15,23 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
-function Interactions({ interactions }) {
-  return (
+function Interactions({ interactions, local=false }) {
+  
+    return (
         <View style={styles.lastStep}>
             <StyledText type="subtitle">Previous Interactions</StyledText>
             {interactions.length > 0 ? (
                 interactions.map((ir) => (
                 <View key={ir.id} style={styles.interactionCard}>
-                    <StyledText type="subtitle">{ir.task_detail.indicator.name}</StyledText>
-                    <StyledText type="default">{ir.interaction_date}</StyledText>
+                    <StyledText type="subtitle">{ir.task_detail?.indicator?.code}: {ir.task_detail?.indicator?.name}</StyledText>
+                    <StyledText type="default">{ local ? new Date(ir.date).toLocaleDateString(): new Date(ir.interaction_date).toLocaleDateString()}</StyledText>
+                    {ir?.subcategories?.length > 0 &&
+                        ir.subcategories.map((cat) => (
+                            <View key={cat.id ?? cat.subcategory} style={styles.li}>
+                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText>
+                                <StyledText>{local ? cat.subcategory : cat.name}</StyledText>
+                            </View>
+                    ))}
                 </View>
                 ))
             ) : (
@@ -156,6 +164,7 @@ export default function Record() {
         }
         else{
             const getLocal = async () => {
+                setFromLocal(true);
                 const localIr = await getInteractionsForRespondent(activeRespondent.id);
                 setInteractions(localIr);
             }
@@ -239,7 +248,7 @@ export default function Record() {
             
             </View>
             {activeRespondent && <AddInteraction respondent={activeRespondent} tasks={tasks} fromLocal={fromLocal} />}
-            {activeRespondent && (interactions.length > 0 ? <Interactions interactions={interactions} /> : 
+            {activeRespondent && (interactions.length > 0 ? <Interactions interactions={interactions} local={fromLocal}/> : 
                 <StyledText>No Previous Interactions</StyledText>)}
             </StyledScroll>
         </View>
@@ -319,5 +328,15 @@ const styles = StyleSheet.create({
         padding: 10,
         marginBottom: 10,
         backgroundColor: theme.colors.bonasoDarkAccent,
+    },
+    li: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 4,
+    },
+    bullet: {
+        fontSize: 18,
+        lineHeight: 22,
+        marginRight: 6,
     },
 });
