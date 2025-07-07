@@ -1,12 +1,13 @@
 import { querySelector, queryWriter } from '@/database/queryWriter';
 import fetchWithAuth from '../../services/fetchWithAuth';
 
-async function getSubcatNames(interactionId) {
+async function getSubcats(interactionId) {
     const rows = await querySelector(
-        `SELECT subcategory FROM interaction_subcategories WHERE interaction = ?`,
+        `SELECT subcategory, numeric_component, linked_id FROM interaction_subcategories WHERE interaction = ?`,
         [interactionId]
     );
-    return rows.map(row => row.subcategory);
+    const subcats = rows.map(row => ({'id': row.linked_id, 'name': row.subcategory, 'numeric_component': row.numeric_component}))
+    return subcats 
 }
 
 export default async function syncInteractions() {
@@ -23,15 +24,15 @@ export default async function syncInteractions() {
     const toSync = new Set();
 
     for (const row of interactionsToSync) {
-        const subcats = await getSubcatNames(row.id);  
+        const subcats = await getSubcats(row.id); 
+        console.log('cat', subcats) 
         const respondentId = row.respondent_server;
-
         const taskObject = {
             id: row.id,  // optional, for local tracking
             task: row.task,
             numeric_component: row.numeric_component,
             interaction_date: row.date,
-            subcategory_names: subcats,
+            subcategories_data: subcats,
         };
 
         if (!interactionMap[respondentId]) {

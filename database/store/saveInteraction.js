@@ -30,11 +30,11 @@ export default async function saveInteraction(formData, wasLocal=false) {
             console.log(result)
             const interactionId = result.lastInsertRowId;
 
-            if (task.subcategory_names && task.subcategory_names.length > 0) {
-                for (const subcat of task.subcategory_names) {
+            if (task.subcategories_data && task.subcategories_data.length > 0) {
+                for (const subcat of task.subcategories_data) {
                     await queryWriter(
-                        `INSERT INTO interaction_subcategories (interaction, subcategory, synced) VALUES (?, ?, ?)`,
-                        [interactionId, subcat, 0]
+                        `INSERT INTO interaction_subcategories (interaction, subcategory, linked_id, numeric_component, synced) VALUES (?, ?, ?, ?, ?)`,
+                        [interactionId, subcat.name, subcat.linked_id, subcat?.numeric_component || null,  0]
                     );
                 }
             }

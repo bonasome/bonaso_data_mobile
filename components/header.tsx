@@ -1,7 +1,9 @@
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import deleteIfSynced from "@/database/upload/deleteIfSynced";
+import uploadInteraction from '@/database/upload/uploadInteraction';
 import uploadLocal from '@/database/upload/uploadLocal';
+import uploadRespondents from '@/database/upload/uploadRespondents';
 import checkServerConnection from "@/services/checkServerConnection";
 import theme from "@/themes/themes";
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -19,6 +21,8 @@ export default function Header() {
         if (connected) {
             try {
                 await uploadLocal();
+                await uploadRespondents();
+                await uploadInteraction();
                 await deleteIfSynced();
             } 
             catch (err) {

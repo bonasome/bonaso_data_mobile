@@ -15,11 +15,14 @@ async function refreshAccessToken() {
 
     if (!response.ok) {
         //AuthService.signOut();
+        const data = await response.json()
+        console.log(data)
         throw new Error('No refresh token available');
     }
 
     const data = await response.json();
     await SecureStore.setItemAsync('accessToken', data.access);
+    await SecureStore.setItemAsync('refreshToken', data.refresh);
     return data.access;
 }
 

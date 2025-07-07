@@ -3,12 +3,14 @@ import fetchWithAuth from '../../services/fetchWithAuth';
 import organizeRespondentPayload from './organizeRespondentPayload';
 
 // Get all subcategory names for a given interaction
-async function getSubcatNames(interactionId) {
+async function getSubcats(interactionId) {
     const rows = await querySelector(
-        `SELECT subcategory FROM interaction_subcategories WHERE interaction = ?`,
+        `SELECT subcategory, numeric_component, linked_id FROM interaction_subcategories WHERE interaction = ?`,
         [interactionId]
     );
-    return rows.map(row => row.subcategory); // assuming subcategory is the name or ID you want to send
+
+    const subcats = rows.map(row => ({'id': row.linked_id, 'name': row.subcategory, 'numeric_component': row.numeric_component}))
+    return subcats 
 }
 
 export default async function syncRespondents() {
@@ -37,7 +39,7 @@ export default async function syncRespondents() {
                 const interaction = rows[0];
                 interactions.push({
                     task: interaction.task,
-                    subcategory_names: await getSubcatNames(interaction.id),
+                    subcategories_data: await getSubcats(interaction.id),
                     numeric_component: interaction.numeric_component,
                     interaction_date: interaction.date,
                 });

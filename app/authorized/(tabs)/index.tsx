@@ -36,6 +36,7 @@ export default function Index() {
         if(!isServerReachable) return;
         const fetchTasks = async () => {
             try {
+                console.log('fetching tasks...')
                 const response = await fetchWithAuth('/api/manage/tasks/');
                 if (response.ok) {
                     const data = await response.json();

@@ -11,11 +11,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 function TaskCard({ task }) {
-    useEffect(() => {
-
-    }, [])
     const [expanded, setExpanded] = useState(false);
-
     return(
         <View style={styles.card}>
             <TouchableOpacity onPress={() => setExpanded(!expanded)}>
@@ -25,9 +21,7 @@ function TaskCard({ task }) {
             {expanded && 
 
                 <View>
-
                     <StyledText type="defaultSemiBold" >{task.project.name}</StyledText>
-
                     {task.indicator.prerequisite && 
                         <StyledText type="defaultSemiBold" >{task.indicator.prerequisite.name}</StyledText>
                     }
@@ -38,13 +32,13 @@ function TaskCard({ task }) {
                             {task.indicator.subcategories.map((cat) => (
                                 <View key={cat.name} style={styles.li}>
                                     <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                    <StyledText >{cat.name}</StyledText>
+                                    <StyledText>{cat.name}</StyledText>
                                 </View>
                             ))}
                         </View>
                     }
                     {task.indicator.require_numeric && 
-                        <StyledText type="defaultSemiBold" >Requires number</StyledText>
+                        <StyledText type="defaultSemiBold">Requires number</StyledText>
                     }
                 </View>
             }
@@ -95,9 +89,11 @@ export default function Tasks() {
 
     return (
         <StyledScroll>
+            <StyledText type="title">Your Tasks</StyledText>
             {tasks.length > 0 && tasks.map((t) => (
                 <TaskCard key={t.id} task={t} />
             ))}
+            {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
         </StyledScroll>
     );
 }
@@ -108,7 +104,8 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.bonasoUberDarkAccent,
         flex: 1,
         justifyContent: 'center',
-        marginBottom: 15,
+        marginTop: 10,
+        marginBottom: 10,
     },
     ul: {
     paddingLeft: 20, // indent like <ul>

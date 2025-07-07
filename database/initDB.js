@@ -96,6 +96,8 @@ const queries = [
   `CREATE TABLE IF NOT EXISTS interaction_subcategories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     interaction INTEGER NOT NULL,
+    linked_id INTEGER,
+    numeric_component INTEGER,
     subcategory TEXT,
     synced BOOLEAN DEFAULT 0,
     FOREIGN KEY (interaction) REFERENCES interactions(id)

@@ -1,4 +1,3 @@
-import Checkboxes from '@/components/checkboxes';
 import StyledText from "@/components/styledText";
 import { useConnection } from "@/context/ConnectionContext";
 import saveInteraction from '@/database/store/saveInteraction';
@@ -6,6 +5,7 @@ import deleteIfSynced from "@/database/upload/deleteIfSynced";
 import uploadInteraction from '@/database/upload/uploadInteraction';
 import fetchWithAuth from '@/services/fetchWithAuth';
 import theme from "@/themes/themes";
+import Ionicons from '@expo/vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -95,7 +95,8 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 setAllowedSubcats(prev => ({ ...prev, [ct.id]: localSubcats }));
 
                 if(subcats[ct.id]?.length > 0){
-                    const validSubcats = subcats[ct.id].filter(s => localSubcats.includes(s));
+                    const valid_ids = localSubcats.map((c) => (c.linked_id))
+                    const validSubcats = subcats[ct.id].filter(s => valid_ids.includes(s.linked_id));
                     setSubcats(prev => ({...prev, [ct.id]: validSubcats}));
 
                     if(validSubcats.length === 0){
@@ -104,9 +105,9 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 }
             });
         }
+        console.log(localSubcats)
 
-        const taskSubcats = allowedSubcats?.[task.id]?.length > 0 ? allowedSubcats?.[task.id].map(cat => ({value: cat, label: cat})) : 
-            task.indicator.subcategories.map(cat => ({ value: cat.name, label: cat.name }));
+        const taskSubcats = allowedSubcats?.[task.id]?.length > 0 ? allowedSubcats?.[task.id] : task.indicator.subcategories;
         return(
             <View>
                 <Modal transparent={true}
@@ -115,13 +116,42 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                     onRequestClose={() => setShowSubcats(false)}>
                     <View style={styles.modalContent}>
                     <StyledText style={styles.modalTitle} type='subtitle'>Please select all relevent subcategories.</StyledText>
-                    <Checkboxes
-                        values={taskSubcats}
-                        label="Subcategories"
-                        selected={localSubcats || []}
-                        onChange={(selected) => setLocalSubcats(selected)
-                        }
-                    />
+                    <View style={styles.container}>
+                        {taskSubcats.map(sc => {
+                            const checked = localSubcats.filter(s => s.id === sc.id).length > 0;
+                            return (
+                                <TouchableOpacity
+                                    key={sc.id}
+                                    style={styles.checkboxContainer}
+                                    onPress={() => {
+                                        setLocalSubcats(prev => (
+                                            prev.some(v => v.id === sc.id) ? 
+                                            prev.filter(v => v.id !== sc.id) : [...localSubcats, sc]
+                                        )
+                                        )
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name={checked ? 'checkbox' : 'square-outline'}
+                                        size={24}
+                                        color={checked ? theme.colors.bonasoLightAccent : '#fff'}
+                                    />
+                                    <StyledText type='defaultSemiBold' style={styles.checkboxLabel}>{sc.name}</StyledText>
+                                    {task.indicator.require_numeric && checked && 
+                                        <TextInput style={styles.smallInput} keyboardType="numeric"
+                                            onChangeText={(v) => setLocalSubcats(prev => {
+                                                const others = prev.filter(c => c.id !== sc.id);
+                                                return [...others, { ...sc, numeric_component: v }];
+                                            })} 
+                                            value = {localSubcats.find(s => sc.id == s.id).numeric_component}
+                                            placeholder={'enter any number...'}
+                                        />
+                                    }
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                     <View style={{flexDirection: 'row'}}>
                     <TouchableOpacity style={styles.button} disabled={localSubcats.length === 0} onPress={() => onSave()}>
                         <StyledText type='darkSemiBold' style={styles.buttonText}>Confirm</StyledText>
@@ -137,6 +167,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         )
     }
 
+    console.log(subcats)
 
     const handlePress = async (task) => {
         const existing = selected.filter(s => s.id === task.id);
@@ -224,7 +255,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         const allTaskData = selected.map((task) => ({
             task: task.id,
             numeric_component: number[task.id] || null,
-            subcategory_names: subcats[task.id] || [],
+            subcategories_data: subcats[task.id] || [],
         }))
         const interactions = {
             tasks: allTaskData,
@@ -287,13 +318,11 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 {tasks.length > 0 && tasks.map((task) => (
                     <TouchableOpacity key={task.id} style={selected.filter(s => s.id === task.id).length > 0 ? styles.selectedCard : styles.card} onPress={() => handlePress(task)}>
                         <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.indicator.name}</StyledText>
-                        {subcats[task.id]?.length >0 && 
-                            selected.filter(s => s.id === task.id).length > 0 &&
- 
+                        {subcats[task.id]?.length > 0 && selected.filter(s => s.id === task.id).length > 0 &&
                             subcats[task.id].map((cat) => (
-                                 <View key={cat} style={styles.li}>
+                                 <View key={cat.id} style={styles.li}>
                                     <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                    <StyledText >{cat}</StyledText>
+                                    <StyledText >{cat.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
                                 </View>
                             ))
                         }
@@ -385,6 +414,16 @@ const styles = StyleSheet.create({
         marginTop: 30,
         marginBottom: 30,
         width: 250,
+        backgroundColor: '#fff',
+    },
+    container: { marginVertical: 10 },
+    label: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+    checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    checkboxLabel: { marginLeft: 8, fontSize: 16 },
+    smallInput: {
+        marginTop: 30,
+        marginBottom: 30,
+        width: 40,
         backgroundColor: '#fff',
     },
 });
