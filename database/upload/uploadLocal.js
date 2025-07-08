@@ -42,6 +42,7 @@ export default async function syncRespondents() {
                     subcategories_data: await getSubcats(interaction.id),
                     numeric_component: interaction.numeric_component,
                     interaction_date: interaction.date,
+                    interaction_location: interaction.location
                 });
             }
 

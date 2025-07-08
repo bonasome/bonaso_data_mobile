@@ -9,17 +9,18 @@ export default async function saveInteraction(formData, wasLocal=false) {
         const respondent = formData.respondent;
 
         const insertQuery = wasLocal ?  
-        `INSERT INTO interactions ( date, respondent_local, numeric_component, task, synced) VALUES 
+        `INSERT INTO interactions ( date, location, respondent_local, numeric_component, task, synced) VALUES 
         (?, ?, ?, ?, ?)`
         :
             `INSERT INTO interactions (
-                date, respondent_server, numeric_component, task, synced
+                date, location, respondent_server, numeric_component, task, synced
             ) VALUES (?, ?, ?, ?, ?)`
         ;
 
         for (const task of formData.tasks) {
             const insertParams = [
                 doi,
+                location,
                 respondent,
                 task.numeric_component || null,
                 task.task, // or task.id depending on your structure

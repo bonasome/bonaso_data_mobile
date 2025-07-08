@@ -3,7 +3,7 @@ import StyledText from "@/components/styledText";
 //import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import initDB from '@/database/initDB';
-//import resetDB from '@/database/resetDB';
+import resetDB from '@/database/resetDB';
 import syncRespondentMeta from '@/database/sync/syncRespondentMeta';
 import syncTasks from '@/database/sync/syncTasks';
 import uploadLocal from '@/database/upload/uploadLocal';
@@ -14,6 +14,17 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
+function Me({ me }) {
+    return(
+        <View style={styles.card}>
+            {me  ?
+                <StyledText type="defaultSemiBold">You are signed in as {me.first_name} {me.last_name} with {me.organization_detail.name}</StyledText> :
+                <StyledText type="defaultSemiBold">You are offline! Some features may not be available.</StyledText>
+            }
+        </View>
+    )
+}
+
 export default function Index() {
     //const { signOut } = useAuth();
     const [me, setMe] = useState(null);
@@ -21,7 +32,7 @@ export default function Index() {
     const { isServerReachable } = useConnection();
     useEffect(() => {
         const setDB = async() => {
-            //await resetDB()
+            await resetDB()
             await initDB();
         }
         setDB();
@@ -88,14 +99,7 @@ export default function Index() {
     return (
         <StyledScroll>
             <StyledText type='title'> {me ? `Welcome, ${me.first_name} ${me.last_name}!` :  'Welcome!'}</StyledText>
-            {me && <View style={styles.card}>
-                <StyledText type="defaultSemiBold">Signed in as {me.first_name} {me.last_name} with {me.organization_detail.name}</StyledText>
-            </View>}
-            {!isServerReachable && 
-                <View style={styles.card}>
-                    <StyledText type="defaultSemiBold">You are offline. Some features may not be available.</StyledText>
-                </View>
-            }
+            <Me me={me} />
             <View style={styles.card}>
                 <StyledText type="subtitle">Quick Actions</StyledText>
                 <TouchableOpacity style={styles.button} onPress={() => router.push({pathname: '/authorized/(tabs)/about'})}>

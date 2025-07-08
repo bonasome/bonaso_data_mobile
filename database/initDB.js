@@ -84,6 +84,7 @@ const queries = [
   `CREATE TABLE IF NOT EXISTS interactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT,
+    location TEXT,
     numeric_component INTEGER,
     task INTEGER NOT NULL,
     respondent_local INTEGER,

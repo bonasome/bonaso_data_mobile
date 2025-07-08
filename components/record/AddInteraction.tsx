@@ -13,6 +13,7 @@ import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-nati
 export default function AddInteraction({ respondent, tasks, fromLocal }){
     const { isServerReachable } = useConnection();
     const [doi, setDoi] = useState(new Date());
+    const [location, setLocation] = useState('');
     const [showDate, setShowDate] = useState(false);
     const [selected, setSelected] = useState([])
     const [number, setNumber] = useState({});
@@ -264,6 +265,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         const interactions = {
             tasks: allTaskData,
             respondent: respondent.id,
+            location: location,
             doi: doi
         }
         const result = await saveInteraction(interactions, fromLocal)
@@ -282,6 +284,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 }
             }
             setDoi(new Date())
+            setLocation('');
             setSelected([]);
             setSubcats({})
             setNumber({})
@@ -301,7 +304,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
     return(
         <View>
             <View style={styles.step}>
-                <StyledText type='subtitle'>Step 2: Select a Date</StyledText>
+                <StyledText type='subtitle'>Step 2: Select a Date/Location</StyledText>
                 <View style={styles.date}>
                     <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
                         <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
@@ -315,6 +318,8 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                     />
                     )}
                 </View>
+                <StyledText>Location</StyledText>
+                <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
             </View>
         
             <View style={styles.step}>

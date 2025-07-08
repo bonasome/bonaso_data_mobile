@@ -32,6 +32,7 @@ export default async function syncInteractions() {
             task: row.task,
             numeric_component: row.numeric_component,
             interaction_date: row.date,
+            interaction_location: row.location,
             subcategories_data: subcats,
         };
 
