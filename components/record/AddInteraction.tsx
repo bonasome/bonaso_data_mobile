@@ -69,6 +69,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
 
     function SelectSubcats({ task }){
         const [localSubcats, setLocalSubcats] = useState([]);
+        const [error, setError] = useState('');
         useEffect(() => {
             if (showSubcats) {
                 setLocalSubcats(subcats[task.id] || []);
@@ -87,13 +88,22 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
             setShowSubcats(false);
         };
         const onSave = () => {
+            if(task.indicator.require_numeric){
+                const flag = localSubcats.some(sc => (
+                    !sc.numeric_component || isNaN(sc.numeric_component) || sc.numeric_component === ''
+                ));
+                if(flag){
+                    setError('Please make sure you have selected a number for each selected subcategory.')
+                    return;
+                }
+            }
+            
             setSubcats(prev => ({ ...prev, [task.id]: localSubcats })); 
             setSelected(prev => [...prev, task]);
             setShowSubcats(false);
             const downstreamTasks = selected.filter(t => String(t?.indicator?.prerequisite) === String(task?.indicator?.id));
             downstreamTasks.forEach(ct => {
                 setAllowedSubcats(prev => ({ ...prev, [ct.id]: localSubcats }));
-
                 if(subcats[ct.id]?.length > 0){
                     const valid_ids = localSubcats.map((c) => (c.linked_id))
                     const validSubcats = subcats[ct.id].filter(s => valid_ids.includes(s.linked_id));
@@ -105,7 +115,6 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 }
             });
         }
-        console.log(localSubcats)
 
         const taskSubcats = allowedSubcats?.[task.id]?.length > 0 ? allowedSubcats?.[task.id] : task.indicator.subcategories;
         return(
@@ -114,8 +123,10 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                     visible={showSubcats}
                     animationType="slide"
                     onRequestClose={() => setShowSubcats(false)}>
+                    
                     <View style={styles.modalContent}>
                     <StyledText style={styles.modalTitle} type='subtitle'>Please select all relevent subcategories.</StyledText>
+                    {error != '' && <StyledText>{error}</StyledText>}
                     <View style={styles.container}>
                         {taskSubcats.map(sc => {
                             const checked = localSubcats.filter(s => s.id === sc.id).length > 0;
@@ -167,8 +178,6 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         )
     }
 
-    console.log(subcats)
-
     const handlePress = async (task) => {
         const existing = selected.filter(s => s.id === task.id);
         if(existing.length > 0 && !task.indicator.subcategories.length > 0 && !task.indicator.require_numeric){
@@ -184,14 +193,10 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 return;
             }
             let isValid = false;
-            console.log(prereq)
-            console.log(selected)
             const inBatch = selected.filter(t => t?.indicator.id.toString() === requiredTask?.indicator.id.toString())
-            console.log(inBatch)
             if (inBatch.length > 0) {
                 isValid = true;
                 const interSubcats = subcats[inBatch[0].id]
-                console.log(interSubcats)
                 setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
             } 
             if (!isValid){
@@ -200,7 +205,6 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                     const data = await response.json()
                     if(data.results.length > 0){
                         const validPastInt = data.results.find(inter => inter?.task_detail?.indicator?.id === prereq);
-                        console.log(validPastInt.interaction_date, doi)
                         if (validPastInt && new Date(validPastInt.interaction_date) <= doi) {
                             isValid = true;
                             if (validPastInt?.subcategories) {

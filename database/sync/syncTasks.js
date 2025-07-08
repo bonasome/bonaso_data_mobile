@@ -4,6 +4,10 @@ import { queryWriter } from "../queryWriter";
 
 export default async function syncTasks(data) {
     try{
+        await queryWriter('DELETE FROM projects');
+        await queryWriter('DELETE FROM indicators')
+        await queryWriter('DELETE FROM indicator_subcategories')
+        await queryWriter('DELETE FROM tasks')
         const projectIDs = []
         const indicatorIDs = []
         for(const task of data){
