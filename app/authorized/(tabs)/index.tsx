@@ -3,7 +3,7 @@ import StyledText from "@/components/styledText";
 //import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import initDB from '@/database/initDB';
-import resetDB from '@/database/resetDB';
+//import resetDB from '@/database/resetDB';
 import syncRespondentMeta from '@/database/sync/syncRespondentMeta';
 import syncTasks from '@/database/sync/syncTasks';
 import uploadLocal from '@/database/upload/uploadLocal';
@@ -32,7 +32,7 @@ export default function Index() {
     const { isServerReachable } = useConnection();
     useEffect(() => {
         const setDB = async() => {
-            await resetDB()
+            //await resetDB()
             await initDB();
         }
         setDB();

@@ -30,8 +30,21 @@ export default async function syncTasks(data) {
                 const indicatorDesc = task.indicator.description || ''
                 const numeric = task.indicator.require_numeric || false
                 const prereq = task.indicator.prerequisite?.id ?? null;
-                await queryWriter(`INSERT OR REPLACE INTO indicators (id, code, name, description, require_numeric, prerequisite) VALUES(
-                    ?, ?, ?, ?, ?, ? )`, [indicatorID, indicatorCode, indicatorName, indicatorDesc, numeric, prereq] )
+                await queryWriter(`INSERT OR REPLACE INTO indicators (id, code, name, description, require_numeric) VALUES(
+                    ?, ?, ?, ?, ?)`, [indicatorID, indicatorCode, indicatorName, indicatorDesc, numeric] 
+                )
+                if(task?.indicator?.prerequisites?.length > 0){
+                    for(const prereq of task.indicator.prerequisites){
+                        await queryWriter(`INSERT OR REPLACE INTO indicator_prerequisites (dependent_id, prerequisite_id) VALUES(
+                    ?, ?, ?)`, [indicatorID, prereq.id] )
+                    }
+                }
+                if(task?.indicator?.required_attributes?.length > 0){
+                    for(const attr of task.indicator.required_attributes){
+                        await queryWriter(`INSERT OR REPLACE INTO indicator_required_attributes (indicator_id, attribute_id) VALUES(
+                    ?, ?, ?)`, [indicatorID, attr.id] )
+                    }
+                }
                 if(task?.indicator?.subcategories?.length > 0){
                     for(const cat of task.indicator.subcategories){
                         await queryWriter(`INSERT OR REPLACE INTO indicator_subcategories (linked_id, indicator, name) VALUES(

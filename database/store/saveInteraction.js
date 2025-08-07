@@ -7,16 +7,16 @@ export default async function saveInteraction(formData, wasLocal=false) {
             : formData.doi;
 
         const respondent = formData.respondent;
-
+        const location = formData.location;
         const insertQuery = wasLocal ?  
         `INSERT INTO interactions ( date, location, respondent_local, numeric_component, task, synced) VALUES 
-        (?, ?, ?, ?, ?)`
+        (?, ?, ?, ?, ?, ?)`
         :
             `INSERT INTO interactions (
                 date, location, respondent_server, numeric_component, task, synced
-            ) VALUES (?, ?, ?, ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?)`
         ;
-
+        console.log(location)
         for (const task of formData.tasks) {
             const insertParams = [
                 doi,
@@ -28,7 +28,6 @@ export default async function saveInteraction(formData, wasLocal=false) {
             ];
 
             const result = await queryWriter(insertQuery, insertParams);
-            console.log(result)
             const interactionId = result.lastInsertRowId;
 
             if (task.subcategories_data && task.subcategories_data.length > 0) {

@@ -12,7 +12,7 @@ async function getSubcats(interactionId) {
 
 export default async function syncInteractions() {
     const interactionsToSync = await querySelector(
-        `SELECT id, respondent_server, task, numeric_component, date FROM interactions WHERE synced = 0 AND respondent_server IS NOT NULL`
+        `SELECT id, respondent_server, task, numeric_component, date, location FROM interactions WHERE synced = 0 AND respondent_server IS NOT NULL`
     );
 
     if (!interactionsToSync.length) {
@@ -24,6 +24,7 @@ export default async function syncInteractions() {
     const toSync = new Set();
 
     for (const row of interactionsToSync) {
+        console.log(row.location)
         const subcats = await getSubcats(row.id); 
         console.log('cat', subcats) 
         const respondentId = row.respondent_server;
