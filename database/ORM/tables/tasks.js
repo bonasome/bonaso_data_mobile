@@ -28,13 +28,14 @@ export class Task extends BaseModel {
 
     static fields = {
         id: {type: 'integer', primary: true},
+        display_name: {type: 'text'},
         project: {type: 'integer', relationship: {table: 'projects', onCol: 'id'}},
         organization: {type: 'integer', relationship: {table: 'organizations', onCol: 'id'}},
         indicator: {type: 'integer', relationship: {table: 'indicators', onCol: 'id'}}
     }
     static relationships = [
-        {model: Organization, name: 'organizations', onCol: 'id', onDelete: 'cascade', fetch: true}, 
-        {model: Project, name: 'projects', onCol: 'id', onDelete: 'cascade', fetch: true}, 
-        {model: Indicator, name: 'indicators', onCol: 'id', onDelete: 'cascade', fetch: true}, 
+        {model: Organization, field: 'organization', name: 'organizations', thisCol: 'organization', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
+        {model: Project, field: 'project', name: 'projects', thisCol: 'project', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
+        {model: Indicator, field: 'indicator', name: 'indicators', thisCol: 'indicator', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
     ]
 }

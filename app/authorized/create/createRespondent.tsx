@@ -1,53 +1,27 @@
-import Checkboxes from '@/components/checkboxes';
-import SimplePicker from '@/components/simplePicker';
+import FormSection from '@/components/forms/FormSection';
 import StyledScroll from '@/components/styledScroll';
 import StyledText from '@/components/styledText';
-import ToggleCheckbox from '@/components/toggleCheckbox';
 import { useConnection } from '@/context/ConnectionContext';
-import saveRespondent from '@/database/store/saveRespondent';
-import { mapMeta } from '@/database/sync/mapMeta';
-import deleteIfSynced from '@/database/upload/deleteIfSynced';
-import uploadRespondent from '@/database/upload/uploadRespondents';
+import { getMeta } from '@/database/ORM/metaHelper';
+import { Respondent } from '@/database/ORM/tables/respondents';
 import theme from '@/themes/themes';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { randomUUID } from 'expo-crypto';
 import { router, useNavigation } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export default function CreateRespondent() {
+export default function CreateRespondent({ existing=null }) {
     const navigation = useNavigation();
     const { isServerReachable } = useConnection();
-    const [meta, setMeta] = useState(null);
-    const [showDate, setShowDate] = useState(false);
-    const [isAnon, setIsAnon] = useState(false);
+    const [meta, setMeta] = useState(null); //meta containing options/labels for certain fields
 
-    const { control, handleSubmit, setValue, getValues, watch, reset, formState: { errors } } = useForm({
-        defaultValues: {
-            first_name: '',
-            last_name: '',
-            dob: null,
-            age_range: '',
-            id_no: '',
-            sex: '',
-            district: '',
-            ward: '',
-            village: '',
-            citizenship: 'Motswana',
-            kp_status_names: [],
-            disability_status_names: [],
-            email: '',
-            phone: '',
-            is_pregnant: false,
-            hiv_positive: false,
-        }
-    });
-
+    //load the meta
     useEffect(() => {
         let isMounted = true;
-        const getMeta = async () => {
+        const loadMeta = async () => {
             try {
-                const localMeta = await mapMeta();
+                const localMeta = await getMeta();
                 if (isMounted) {
                     setMeta(localMeta);
                 }
@@ -59,345 +33,169 @@ export default function CreateRespondent() {
                 }
             }
         };
-        getMeta();
+        loadMeta();
         return () => {
             isMounted = false;
         };
     }, []);
+
+    //set the default values
+    const defaultValues = useMemo(() => {
+        return {
+            is_anonymous: existing?.is_anonymous ?? false,
+
+            id_no: existing?.id_no ?? '',
+            first_name: existing?.first_name ?? '',
+            last_name: existing?.last_name ?? '',
+
+            sex: existing?.sex ?? null,
+            age_range: existing?.age_range ?? '',
+            dob: existing?.dob ?? '',
+            
+            plot_no: existing?.plot_no ?? '',
+            ward: existing?.ward ?? '',
+            village: existing?.village ?? '',
+            district: existing?.district ?? '',
+            citizenship: existing?.citizenship ?? 'BW',
+
+            kp_status: existing?.kp_status?.map((kp) => (kp.name)) ?? [],
+            disability_status: existing?.disability_status?.map((d) => (d.name)) ?? [],
+            
+            email: existing?.email ?? '',
+            phone_number: existing?.phone_number ?? '',
+        }
+    }, [existing]);
+
+    //set up the form
+    const { control, handleSubmit, setValue, getValues, watch, reset, formState: { errors } } = useForm({ defaultValues });
+
+    //handle submission
     const onSubmit = async (data) => {
-        console.log(data)
-        if (isAnon) {
+        //in case of switching, set stale fields to null
+        if (data.is_anonymous) {
             data.first_name = null;
             data.last_name = null;
             data.dob = null;
             data.id_no = null;
             data.ward = null;
+            data.plot_no = null;
             data.email = null;
-            data.phone = null;
-        } else {
+            data.phone_number = null;
+        } 
+        else {
             if (!data.dob || new Date(data.dob) > new Date()) {
                 alert("Date of birth is invalid.");
                 return;
             }
-            data.age_range = null;
+            data.age_range = null; //dob is the highest truth
         }
-        data.is_anonymous = isAnon;
-        const result = await saveRespondent(data);
-        let id = result.id
-        console.log(id)
-        if (result.success) {
-            alert("Saved successfully!");
+        data.uuid = randomUUID();
+        try{
+            console.log('submitting data...');
+            let result = await Respondent.save(data);
             if (isServerReachable) {
                 try {
-                    const uploaded = await uploadRespondent();
-                    if (uploaded) await deleteIfSynced();
-                    id = uploaded[uploaded.length - 1];
-                    
-                } catch (err) {
-                    alert('Upload failed.')
+                    const uploaded = await Respondent.upload(result);
+                    console.log(uploaded);
+                    if (uploaded) alert('Respondent saved and uploaded successfully!');
+                    else alert('Respondent saved, but the upload failed. Will try again next time connection is found.');
+                    router.push({ pathname: '/authorized/(tabs)/record', params: { created: uploaded } });
+                    return uploaded
+                } 
+                catch (err) {
+                    alert('Respondent saved, but the upload failed. Will try again next time connection is found.')
                     console.error('Upload failed', err);
                 }
             }
-            console.log(id)
-            router.push({ pathname: '/authorized/(tabs)/record', params: { created: id } });
-        } 
-        else {
-            alert("Failed to save.");
+            else{
+                alert('Respondent saved. Will sync next time connection is found.')
+            }
+            router.push({ pathname: '/authorized/(tabs)/record', params: { created: result } });
+            return result
         }
+        catch(err){
+            console.error(err);
+        }   
     };
+  
+    //section map containing information for each field
+    const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false })
 
-    
+    const isAnon = [
+        { name: 'is_anonymous', label: "Does this respondent wish to remain anonymous", 
+            type: "checkbox", tooltip: `We encourage respondents to provide us with as much information as possible
+            so that we can better assist them, but we recognize that not every respondent wants to provide this information.
+            As such, you can mark a respondent as anonymous, in which case they will not have to give an personally identifying information.`
+        }
+    ]
+    const notAnonBasic= [
+        { name: 'id_no', label: "Omang/ID/Passport Number (Required)", type: "text", rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },
+        {name: 'first_name', label: 'First Name (Include Middle Name if Applicable) (Required)', type: 'text',
+            rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },
+        {name: 'last_name', label: 'Last Name (Required)', type: 'text',  rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },  
+        {name: 'dob', label: 'Date of Birth (Required)', type: 'date',  rules: { required: "Required" } },
+    ]
+    const basics = [
+        {name: 'sex', label: 'Sex (Required)', type: 'radio', options: meta?.sexs,  rules: { required: "Required" },
+            tooltip: 'Please provide the sex/gender that this person currently identifies as, or select "Non-Binary".'
+        }
+    ]
+    const anonBasic = [
+        {name: 'age_range', label: 'Respondent Age Range (Required)', type: 'select',
+            options: meta?.age_ranges,  rules: { required: "Required" } },
+    ]
+    const address = [
+        {name: 'plot_no', label: 'Plot Number (or description)', type: 'text', 
+            tooltip: 'If you may visit this person again, you may want to record some information about where they live.'
+        },
+        {name: 'ward', label: 'Kgotlana/Ward', type: 'text', rules: {maxLength: { value: 255, message: 'Maximum length is 255 characters.'}},},
+    ]
+    const geo = [
+        {name: 'village', label: 'Village/Town/City (Primary Residence) (Required)', type: 'text',  rules: { required: "Required",
+            maxLength: { value: 255, message: 'Maximum length is 255 characters.'},
+         },
+            tooltip: 'Please provide the village, town, or city that best describes where this person currently resides.'
+        },
+        {name: 'district', label: 'District (Required)', type: 'select',  rules: { required: "Required" },
+            options: meta?.districts, 
+            tooltip: 'Please provide the district where this person currently resides.'
+        },
+        {name: 'citizenship', label: 'Citizenship/Nationality (Required)', type: 'text',  rules: { required: "Required",
+            maxLength: { value: 255, message: 'Maximum length is 255 characters.'},
+         },
+            tooltip: 'Please provide the village, town, or city that best describes where this person currently resides.'
+        },
+    ]
+    const special = [
+        {name: 'kp_status', label: 'Key Population Status (Select all that apply)', type: 'multiselect',  
+            options: meta?.kp_types},
+        {name: 'disability_status', label: 'Disability Status (Select all that apply)', type: 'multiselect',  
+            options: meta?.disability_types},
+    ]
+    const contact = [
+        {name: 'email', label: 'Email', type: 'email-address',  rules: {pattern: {value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
+            message: 'Please enter a valid email.',
+        }, maxLength: { value: 255, message: 'Maximum length is 255 characters.'}}, 
+        tooltip: 'This information is not used by the system, but you may want to record it for your own records.'},
+        
+        {name: 'phone_number', label: 'Phone Number', type: 'phone-pad', tooltip: 'This information is not used by the system, but you may want to record it for your own records.',
+            rules: {maxLength: { value: 255, message: 'Maximum length is 255 characters.'}},
+        },
+    ]
+
+    if(!meta?.sexs) return <View></View> //return nothing if the meta has not loaded
     return (
         <StyledScroll>
             <View style={styles.form}>
             <StyledText type='title'>Creating New Respondent</StyledText>
-            <View style={styles.field}>
-                <StyledText style={styles.fieldHeader} type='defaultSemiBold'>Is this an anonymous respondent?</StyledText>
-                <ToggleCheckbox label="Yes" value={isAnon} onChange={setIsAnon} />
-            </View>
-
-            {!isAnon && (
-                <>
-                    <View style={styles.field}>
-                        <StyledText type='defaultSemiBold' style={styles.fieldHeader}>ID or Passport Number</StyledText>
-                        <Controller
-                            rules={!isAnon ? { required: 'ID number is required' } : {}}
-                            control={control}
-                            name="id_no"
-                            render={({ field: { onChange, value } }) => (
-                                <TextInput placeholder="ID No" style={styles.input} value={value} onChangeText={onChange} />
-                            )}
-                        />
-                        {errors.id_no && (
-                            <StyledText style={styles.errorText}>{errors.id_no.message}</StyledText>
-                        )}
-                    </View>
-                    
-                    <View style={styles.field}>
-                        <StyledText type='defaultSemiBold' style={styles.fieldHeader}>First Name</StyledText>
-                        <Controller
-                            control={control}
-                            name="first_name"
-                            rules={!isAnon ? { required: ' First name is required' } : {}}
-                            render={({ field: { onChange, value } }) => (
-                                <TextInput placeholder="First Name" style={styles.input} value={value} onChangeText={onChange} />
-                            )}
-                        />
-                        {errors.first_name && (
-                            <StyledText style={styles.errorText}>{errors.first_name.message}</StyledText>
-                        )}
-                    </View>
-
-                    <View style={styles.field}>
-                        <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Last Name</StyledText>
-                        <Controller
-                            control={control}
-                            name="last_name"
-                            rules={!isAnon ? { required: ' Last name is required' } : {}}
-                            render={({ field: { onChange, value } }) => (
-                                <TextInput placeholder="Last Name" style={styles.input} value={value} onChangeText={onChange} />
-                            )}
-                        />
-                        {errors.last_name && (
-                            <StyledText style={styles.errorText}>{errors.last_name.message}</StyledText>
-                        )}
-                    </View>
-                </>
-            )}
-
-            {meta && (
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Sex</StyledText>
-                    <Controller
-                        name="sex"
-                        control={control}
-                        rules={{ required: 'Sex is required' }}
-                        render={({ field: { value, onChange } }) => (
-                            <SimplePicker 
-                                name="sex"
-                                values={meta.sex}
-                                value={value}
-                                callback={onChange}
-                            />
-                        )}
-                    />
-                    {errors.sex && <StyledText style={styles.errorText}>{errors.sex.message}</StyledText>}
-                </View>
-            )}
-
-            {isAnon && meta && (
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Age Range</StyledText>
-                    <Controller
-                        name="age_range"
-                        control={control}
-                        rules={isAnon ?  {required: 'Age range is required'} : {}}
-                        render={({ field: { value, onChange } }) => (
-                            <SimplePicker
-                                name="age_range"
-                                values={meta.age_range}
-                                value={value}
-                                callback={onChange}
-                            />
-                        )}
-                    />
-                    {errors.age_range && <StyledText style={styles.errorText}>{errors.age_range.message}</StyledText>}
-                </View>
-            )}
-
-            {!isAnon && (
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Date of Birth</StyledText>
-                    <Controller
-                        control={control}
-                        name="dob"
-                        defaultValue={null}
-                        rules={{
-                            validate: (value) => {
-                            if (!isAnon && !value) {
-                                return 'Date of birth is required';
-                            }
-                            if (!isAnon && new Date(value) > new Date()) {
-                                return 'Date cannot be in the future';
-                            }
-                            return true;
-                            }
-                        }}
-                        render={({ field: { value, onChange }, fieldState: { error } }) => (
-                            <View>
-                                <TouchableOpacity onPress={() => setShowDate(true)} style={styles.button}>
-                                    <StyledText style={styles.buttonText} type="defaultSemiBold">
-                                    {value ? new Date(value).toDateString() : 'Select date'}
-                                    </StyledText>
-                                </TouchableOpacity>
-                                {showDate && (
-                                    <DateTimePicker
-                                    value={new Date(value)}
-                                    mode="date"
-                                    display="default"
-                                    onChange={(_, selectedDate) => {
-                                        setShowDate(false);
-                                        if (selectedDate) onChange(selectedDate);
-                                    }}
-                                    />
-                                )}
-                            {error && <StyledText style={styles.errorText}>{error.message}</StyledText>}
-                            </View>
-                        )}
-                        />
-                </View>
-            )}
-
-            {!isAnon && 
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Ward</StyledText>
-                    <Controller
-                        control={control}
-                        name="ward"
-                        render={({ field: { onChange, value } }) => (
-                            <TextInput placeholder="Ward" style={styles.input} value={value} onChangeText={onChange} />
-                        )}
-                    />
-                </View>
-            }
-
-            <View style={styles.field}>
-                <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Village</StyledText>
-                <Controller
-                    control={control}
-                    name="village"
-                    rules={{ required: 'Village is required' }}
-                    render={({ field: { onChange, value } }) => (
-                        <TextInput placeholder="Village" style={styles.input} value={value} onChangeText={onChange} />
-                    )}
-                />
-                {errors.village && (
-                    <StyledText style={styles.errorText}>{errors.village.message}</StyledText>
-                )}
-            </View>
-
-            {meta && 
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>District</StyledText>
-                    <Controller
-                        name="district"
-                        control={control}
-                        rules={{required: 'District is required'}}
-                        render={({ field: { value, onChange } }) => (
-                            <SimplePicker
-                                name="district"
-                                values={meta.districts}
-                                value={value}
-                                callback={onChange}
-                            />
-                        )}
-                    />
-                    {errors.district && <StyledText style={styles.errorText}>{errors.district.message}</StyledText>}
-                </View >
-            }
-
-            <View style={styles.field}>
-                <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Citizenship</StyledText>
-                <Controller
-                    control={control}
-                    name="citizenship"
-                    rules={{ required: 'Citizenship is required' }}
-                    render={({ field: { onChange, value } }) => (
-                        <TextInput placeholder="Citizenship" style={styles.input} value={value} onChangeText={onChange} />
-                    )}
-                />
-                {errors.first_name && (
-                    <StyledText style={styles.errorText}>{errors.first_name.message}</StyledText>
-                )}
-            </View>
-
-            {meta && 
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Key Population Status</StyledText>
-                    <Checkboxes
-                        values={meta.kp_types}
-                        label="Key Population Types"
-                        selected={watch('kp_status_names')}
-                        onChange={(val) => setValue('kp_status_names', val)}
-                    />
-                </View>
-            }
-
-            {meta && 
-                <View style={styles.field}>
-                    <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Key Population Status</StyledText>
-                    <Checkboxes
-                        values={meta.disability_types}
-                        label="Disability Types"
-                        selected={watch('disability_status_names')}
-                        onChange={(val) => setValue('disability_status_names', val)}
-                    />
-                </View>
-                }
-
-            {!isAnon && (
-                <>
-                    <View style={styles.field}>
-                        <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Email</StyledText>
-                        <Controller
-                            control={control}
-                            rules={{pattern: { value: /^\S+@\S+$/i, message: 'Enter a valid email address' } }}
-                            name="email"
-                            render={({ field: { onChange, value } }) => (
-                                <TextInput
-                                    keyboardType="email-address"
-                                    placeholder="person@email.com"
-                                    style={styles.input}
-                                    value={value}
-                                    onChangeText={onChange}
-                                />
-                            )}
-                        />
-                        {errors.email && (
-                            <StyledText style={styles.errorText}>{errors.email.message}</StyledText>
-                        )}
-                    </View>
-                    <View style={styles.field}>
-                        <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Phone Number</StyledText>
-                        <Controller
-                            control={control}
-                            name="phone"
-                            render={({ field: { onChange, value } }) => (
-                                <TextInput
-                                    keyboardType="phone-pad"
-                                    placeholder="+267 71 234 567"
-                                    style={styles.input}
-                                    value={value}
-                                    onChangeText={onChange}
-                                />
-                            )}
-                        />
-                    </View>
-                </>
-            )}
-            <View style={styles.field}>
-                <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Is this person pregnant?</StyledText>
-                <Controller
-                    control={control}
-                    name="is_pregnant"
-                    render={({ field: { onChange, value } }) => (
-                        <ToggleCheckbox label="Yes" value={value} onChange={onChange} />
-                    )}
-                />
-            </View>
-
-            <View style={styles.field}>
-                <StyledText type='defaultSemiBold' style={styles.fieldHeader}>Is this person HIV positive?</StyledText>
-                <Controller
-                    control={control}
-                    name="hiv_positive"
-                    render={({ field: { onChange, value } }) => (
-                        <ToggleCheckbox label="Yes" value={value} onChange={onChange} />
-                    )}
-                />
-            </View>
-
-
+            <FormSection fields={isAnon} control={control} header={'Respondent Anonymity'} />
+            {anon && <FormSection fields={anonBasic} control={control} header='Basic Information' />}
+            {!anon && <FormSection fields={notAnonBasic} control={control} header='Basic Information' />}
+            <FormSection fields={basics} control={control} header='Sex' />
+            {!anon && <FormSection fields={address} control={control} header='Address'/>}
+            <FormSection fields={geo} control={control} header='Geographic Information'/>
+            <FormSection fields={special} control={control} header='Additional Information'/>
+            {!anon && <FormSection fields={contact} control={control} header='Contact Information'/> }
 
             <TouchableOpacity style={styles.button} onPress={handleSubmit(onSubmit, (formErrors) => {
                 console.log("Validation errors:", formErrors);

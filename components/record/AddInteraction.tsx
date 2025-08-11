@@ -1,8 +1,6 @@
 import StyledText from "@/components/styledText";
 import { useConnection } from "@/context/ConnectionContext";
-import saveInteraction from '@/database/store/saveInteraction';
-import deleteIfSynced from "@/database/upload/deleteIfSynced";
-import uploadInteraction from '@/database/upload/uploadInteraction';
+import { Interaction } from "@/database/ORM/tables/interactions";
 import fetchWithAuth from '@/services/fetchWithAuth';
 import theme from "@/themes/themes";
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -28,10 +26,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         const [localNumber, setLocalNumber] = useState(number[task.id] || '');
 
         const onCancel = () => {
-           const downstreamIds = selected
-                .filter(t => String(t?.indicator?.prerequisite) === String(task?.indicator?.id))
-                .map(t => t.id);
-            setSelected(prev => prev.filter(s => s.id !== task.id && !downstreamIds.includes(s.id)));
+            setSelected(prev => prev.filter(s => s.id !== task.id));
             setNumber(prev => ({ ...prev, [task.id]: '' }));
             setShowNumber(false);
         }
@@ -79,13 +74,7 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         
         const onCancel = () => {
             setSubcats(prev => ({ ...prev, [task.id]: [] }));
-
-            const downstreamIds = selected
-                .filter(t => String(t?.indicator?.prerequisite) === String(task?.indicator?.id))
-                .map(t => t.id);
-
-            setSelected(prev => prev.filter(s => s.id !== task.id && !downstreamIds.includes(s.id)));
-
+            setSelected(prev => prev.filter(s => s.id !== task.id));
             setShowSubcats(false);
         };
         const onSave = () => {
@@ -180,66 +169,61 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
     }
 
     const handlePress = async (task) => {
+        //determine if task is already selected
         const existing = selected.filter(s => s.id === task.id);
+        //if yes and no further info is needed, we're good
         if(existing.length > 0 && !task.indicator.subcategories.length > 0 && !task.indicator.require_numeric){
             setSelected(selected.filter(s => s.id !== task.id))
             return;
         }
-        if (task?.indicator?.prerequisite) {
-            const prereq = task.indicator.prerequisite;
-            const requiredTask = tasks.find(t => t.indicator.id === prereq);
-            if (!requiredTask) {
-                console.warn("Missing prerequisite task from available tasks");
-                alert("This task has a prerequisite that could not be found locally. Please sync tasks.");
-                return;
-            }
-            let isValid = false;
-            const inBatch = selected.filter(t => t?.indicator.id.toString() === requiredTask?.indicator.id.toString())
-            if (inBatch.length > 0) {
-                isValid = true;
-                const interSubcats = subcats[inBatch[0].id]
-                setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
-            } 
-            if (!isValid){
-                if(isServerReachable){
-                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${prereq.id}&before=${doi}`);
-                    const data = await response.json()
-                    if(data.results.length > 0){
-                        const validPastInt = data.results.find(inter => inter?.task_detail?.indicator?.id === prereq);
-                        if (validPastInt && new Date(validPastInt.interaction_date) <= doi) {
-                            isValid = true;
-                            if (validPastInt?.subcategories) {
-                                const interSubcats = validPastInt.subcategories.map(t => t.name);
-                                setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
+        //check for prereqs
+        if (task?.indicator?.prerequisites) {
+            for (const prereq of task.indicator.prerequisites){
+                const requiredTask = tasks.find(t => t.indicator.id === prereq.indicator.id);
+                if (!requiredTask) {
+                    alert("This task has a prerequisite that could not be found locally. Please sync tasks.");
+                }
+                let isValid = false;
+                const inBatch = selected.filter(t => t?.indicator.id.toString() === requiredTask?.indicator.id.toString())
+                if (inBatch.length > 0) {
+                    isValid = true;
+                    const interSubcats = subcats[inBatch[0].id]
+                    setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
+                } 
+                if (!isValid){
+                    if(isServerReachable){
+                        const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${prereq.id}&before=${doi}`);
+                        const data = await response.json()
+                        if(data.results.length > 0){
+                            const validPastInt = data.results.find(inter => inter?.task_detail?.indicator?.id === prereq);
+                            if (validPastInt && new Date(validPastInt.interaction_date) <= doi) {
+                                isValid = true;
+                                if (validPastInt?.subcategories) {
+                                    const interSubcats = validPastInt.subcategories.map(t => t.name);
+                                    setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
+                                }
                             }
                         }
                     }
                 }
+                if(!isValid){
+                    alert(`This interaction requires that this respondent has had an interaction related to task "${prereq.indicator.code}: ${prereq.indicator.name}". However, we could not find an instance of this on record. If this an interaction with this task is not added, this interaction will be flagged.`)
+                }
             }
-            if(!isValid && isServerReachable){
-                alert(`This interaction requires that this respondent has been ${requiredTask.indicator.name}. However, we could not find an instance of this on record. Please assure that you have recorded that task first. (HINT: Set an interaction date if you have not already!)`)
-                return;
-            }
-            if(!isValid && !isServerReachable){
-                alert(`This interaction requires that this respondent has been ${requiredTask.indicator.name}.
-                    However, we could not find an instance of this on record. If you beleive that there is
-                    an instance of this on record, you may disregard this message. Just know that if there is no such
-                    interaction, this interaction will not be saved.`)
-            }
-        }
-        if(isServerReachable){
-            const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${task.id}`);
-            const data = await response.json()
-            const pastInt = data.results.filter(inter => inter?.task_detail?.indicator?.id === task.indicator.id);
-            const now = new Date();
-            const oneMonthAgo = new Date();
-            oneMonthAgo.setMonth(now.getMonth() - 1);
+            if(isServerReachable){
+                const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${task.id}`);
+                const data = await response.json()
+                const pastInt = data.results.filter(inter => inter?.task_detail?.indicator?.id === task.indicator.id);
+                const now = new Date();
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(now.getMonth() - 1);
 
-            const tooRecent = pastInt.filter(
-                inter => new Date(inter?.interaction_date) >= oneMonthAgo
-            );
-            if (tooRecent.length > 0 && existing.length === 0) {
-                alert('This respondent has had this interaction in the last month. Please be sure you are not double recording.');
+                const tooRecent = pastInt.filter(
+                    inter => new Date(inter?.interaction_date) >= oneMonthAgo
+                );
+                if (tooRecent.length > 0 && existing.length === 0) {
+                    alert('This respondent has had this interaction in the last month.');
+                }
             }
         }
         if(task.indicator?.subcategories?.length > 0){
@@ -257,41 +241,40 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
     }
 
     const handleSubmit = async() => {
-        const allTaskData = selected.map((task) => ({
-            task: task.id,
-            numeric_component: number[task.id] || null,
-            subcategories_data: subcats[task.id] || [],
-        }))
-        const interactions = {
-            tasks: allTaskData,
-            respondent: respondent.id,
-            location: location,
-            doi: doi
-        }
-        const result = await saveInteraction(interactions, fromLocal)
-        if (result.success) {
-            alert("Saved successfully!");
-            if(isServerReachable){
-                try{
-                    const uploaded = await uploadInteraction()
-                    if(uploaded){
-                        alert('Uploaded succesfuly!')
-                        await deleteIfSynced();
-                    }
+        try{
+            console.log('submitting tasks...')
+            for(const task of selected){
+                const data = {
+                    date: doi.toISOString().split('T')[0],
+                    location: location,
+                    respondent_local: fromLocal ? respondent.id : null,
+                    respondent_server: fromLocal ? null : respondent.id,
+                    task: task.id,
+                    numeric_component: number[task.id] || null,
+                    subcategory_data: subcats[task.id] || []
                 }
-                catch(err){
-                    console.error('Upload failed', err)
+                console.log('data', data)
+                const saved = await Interaction.save(data);
+                console.log(saved)
+            }
+            if(isServerReachable){
+                const uploaded = await Interaction.upload()
+                if(uploaded){
+                    alert('Uploaded succesfuly!')
                 }
             }
-            setDoi(new Date())
-            setLocation('');
-            setSelected([]);
-            setSubcats({})
-            setNumber({})
+            else{
+                alert('Interactions saved! They will be uploaded next time connection is found.')
+            }
         }
-        else{
-            alert('Save Failed.')
+        catch(err){
+            console.error('Save failed', err)
         }
+        //setDoi(new Date());
+        //setLocation('');
+        setSelected([]);
+        setSubcats({});
+        setNumber({});
     }
 
     const onChangeDate = (event, selectedDate) => {
@@ -301,6 +284,11 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
         }
     }
 
+    if(!tasks || tasks.length === 0) return (
+        <View>
+            <StyledText>No tasks.</StyledText>
+        </View>
+    )
     return(
         <View>
             <View style={styles.step}>
@@ -326,7 +314,9 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
                 <StyledText type='subtitle'>Step 3: Choose your tasks</StyledText>
                 {tasks.length > 0 && tasks.map((task) => (
                     <TouchableOpacity key={task.id} style={selected.filter(s => s.id === task.id).length > 0 ? styles.selectedCard : styles.card} onPress={() => handlePress(task)}>
-                        <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.indicator.name}</StyledText>
+                        <StyledText type='defaultSemiBold' style={styles.buttonText}>
+                            {task.indicator.code}: {task.indicator.name} ({task.organization.name}, {task.project.name}) 
+                        </StyledText>
                         {subcats[task.id]?.length > 0 && selected.filter(s => s.id === task.id).length > 0 &&
                             subcats[task.id].map((cat) => (
                                  <View key={cat.id} style={styles.li}>

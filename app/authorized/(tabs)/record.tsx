@@ -2,12 +2,9 @@ import AddInteraction from '@/components/record/AddInteraction';
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useConnection } from "@/context/ConnectionContext";
-import { querySelector } from '@/database/queryWriter';
-import { getInteractionsForRespondent, searchLocalRespondents } from '@/database/searchLocalRespondents';
-import checkLastSynced from '@/database/sync/checkLastSynced';
-import mapTasks from '@/database/sync/mapTasks';
-import syncTasks from '@/database/sync/syncTasks';
-import compTime from '@/services/compTime';
+import { Respondent } from '@/database/ORM/tables/respondents';
+import { Task } from '@/database/ORM/tables/tasks';
+import { getInteractionsForRespondent } from '@/database/searchLocalRespondents';
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
 
@@ -23,13 +20,13 @@ function Interactions({ interactions, local=false }) {
             {interactions.length > 0 ? (
                 interactions.map((ir) => (
                 <View key={ir.id} style={styles.interactionCard}>
-                    <StyledText type="subtitle">{ir.task_detail?.indicator?.code}: {ir.task_detail?.indicator?.name}</StyledText>
+                    <StyledText type="subtitle">{ir.task?.indicator?.code}: {ir.task?.indicator?.display_name}</StyledText>
                     <StyledText type="default">{ local ? new Date(ir.date).toLocaleDateString(): new Date(ir.interaction_date).toLocaleDateString()}</StyledText>
                     {ir?.subcategories?.length > 0 &&
                         ir.subcategories.map((cat) => (
                             <View key={cat.id ?? cat.subcategory} style={styles.li}>
                                 <StyledText style={styles.bullet}>{'\u2022'}</StyledText>
-                                <StyledText>{local ? cat.subcategory : cat.name}</StyledText>
+                                <StyledText>{local ? cat.subcategory : cat?.subcategory.name}</StyledText>
                             </View>
                     ))}
                 </View>
@@ -47,7 +44,7 @@ export default function Record() {
     const { isServerReachable } = useConnection();
     const [tasks, setTasks] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [search, setSearch] = useState('')
+    const [search, setSearch] = useState('');
     const [respondents, setRespondents] = useState([]);
     const [activeRespondent, setActiveRespondent] = useState(null);
     const [fromLocal, setFromLocal] = useState(false);
@@ -55,14 +52,11 @@ export default function Record() {
     const { created } = useLocalSearchParams();
 
     useEffect(() => {
-        console.log(created)
         if (created) {
             (async () => {
                 if(!isServerReachable){
-                    const found = await querySelector(`SELECT * FROM respondents WHERE id=?`, [created]);
-                    if(found.length === 0) return
-                    console.log(found[0])
-                    setActiveRespondent(found[0]);
+                    const found = await Respondent.find(created)
+                    setActiveRespondent(found);
                 }
                 else{   
                     try {
@@ -82,37 +76,13 @@ export default function Record() {
             })();
         }
     }, [created]);
-    
-    useEffect(() => {
-        if (!isServerReachable) return;
-        const maybeSync = async () => {
-            const lastSynced = await checkLastSynced('tasks');
-            const shouldSkip = compTime(lastSynced, 15);
-            if (shouldSkip) return;
 
-            try {
-                const response = await fetchWithAuth('/api/manage/tasks/');
-                if (response.ok) {
-                    const data = await response.json();
-                    await syncTasks(data.results);
-                    const myTasks = await mapTasks(); // reload after syncing
-                    setTasks(myTasks);
-                } else {
-                    console.error('API error', response.status);
-                }
-            } 
-            catch (err) {
-                console.error('Auth error, user should login again', err);
-            }
+    useEffect(() => {
+        const loadTasks = async () => {
+            const myTasks = await Task.all();
+            let serialized = await Promise.all(myTasks.map(t => t.serialize()));
+            setTasks(serialized);
         };
-        maybeSync();
-    }, [isServerReachable, search]);
-
-    useEffect(() => {
-        const loadTasks = async() => {
-            const myTasks = await mapTasks();
-            setTasks(myTasks);
-        }
         loadTasks();
     }, [])
 
@@ -137,7 +107,7 @@ export default function Record() {
         }
         else{
             const searchLocal= async () => {
-                const localResp = await searchLocalRespondents(search);
+                const localResp = await Respondent.search(search);
                 setRespondents(localResp);
                 setFromLocal(true);
             }
@@ -151,7 +121,7 @@ export default function Record() {
             const getInteractions = async() => {
                 if(!activeRespondent) return;
                 try {
-                    console.log('fetching respondent details...');
+                    console.log('fetching interactions...');
                     const response = await fetchWithAuth(`/api/record/interactions/?respondent=${activeRespondent.id}`);
                     const data = await response.json();
                     setInteractions(data.results)
@@ -206,11 +176,11 @@ export default function Record() {
                         >
                         {r.is_anonymous ? (
                             <StyledText style={styles.searchEntry} type="darkSemiBold">
-                            Anonymous Respondent {r.uuid}
+                            {fromLocal ? `Anonymous Respondent ${r.uuid}` : r.display_name}
                             </StyledText>
                         ) : (
                             <StyledText style={styles.searchEntry} type="darkSemiBold">
-                            {r.first_name} {r.last_name}
+                            {fromLocal ?  `${r.first_name} ${r.last_name}` : r.display_name}
                             </StyledText>
                         )}
                         </TouchableOpacity>
@@ -224,9 +194,10 @@ export default function Record() {
                 <View>
                 <StyledText type='subtitle'>
                     You're viewing{' '}
-                    {activeRespondent.is_anonymous
+                    {fromLocal ? (activeRespondent.is_anonymous
                     ? `Anonymous Respondent ${activeRespondent.uuid}`
-                    : `${activeRespondent.first_name} ${activeRespondent.last_name}`}
+                    : `${activeRespondent.first_name} ${activeRespondent.last_name}`) :
+                    activeRespondent.display_name}
                 </StyledText>
                 <StyledText>
                     {activeRespondent.village}, {activeRespondent.district}

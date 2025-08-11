@@ -1,0 +1,29 @@
+
+import theme from "@/themes/themes"
+import { StyleSheet, TextInput, View } from "react-native"
+import StyledText from "../styledText"
+
+export default function Input({ value, onChange, label, error, placeholder='', keyboard=null}){
+    return(
+        <View>
+            <StyledText>{label}</StyledText>
+            <TextInput style={styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'}/>
+            {error && <StyledText style={styles.errorText}>{error}</StyledText>}
+        </View>
+    )
+}
+
+const styles = StyleSheet.create({
+    input: {
+        padding: 15,
+        backgroundColor: '#fff',
+    },
+    errorText:{
+        color: theme.colors.errorText,
+        backgroundColor: theme.colors.errorBg,
+        padding: 5,
+        margin: 10,
+        borderWidth: 4,
+        borderColor: theme.colors.error,
+    },
+})

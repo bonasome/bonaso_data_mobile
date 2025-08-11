@@ -2,10 +2,10 @@ import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 //import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import initDB from '@/database/initDB';
-//import resetDB from '@/database/resetDB';
-import syncRespondentMeta from '@/database/sync/syncRespondentMeta';
-import syncTasks from '@/database/sync/syncTasks';
+import { storeMeta } from '@/database/ORM/metaHelper';
+import { migrate, models } from '@/database/ORM/migrate';
+import { Task } from '@/database/ORM/tables/tasks';
+//import resetDatabase from '@/database/resetDB';
 import uploadLocal from '@/database/upload/uploadLocal';
 import fetchWithAuth from "@/services/fetchWithAuth";
 import { getSecureItem } from "@/services/secureStorage";
@@ -14,11 +14,12 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
+
 function Me({ me }) {
     return(
         <View style={styles.card}>
             {me  ?
-                <StyledText type="defaultSemiBold">You are signed in as {me.first_name} {me.last_name} with {me.organization_detail.name}</StyledText> :
+                <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> :
                 <StyledText type="defaultSemiBold">You are offline! Some features may not be available.</StyledText>
             }
         </View>
@@ -26,14 +27,13 @@ function Me({ me }) {
 }
 
 export default function Index() {
-    //const { signOut } = useAuth();
     const [me, setMe] = useState(null);
     const router = useRouter();
     const { isServerReachable } = useConnection();
     useEffect(() => {
-        const setDB = async() => {
-            //await resetDB()
-            await initDB();
+        const setDB = async () => {
+            //await resetDatabase();
+            await migrate(models)
         }
         setDB();
     }, [])
@@ -55,7 +55,9 @@ export default function Index() {
                 const response = await fetchWithAuth('/api/manage/tasks/');
                 if (response.ok) {
                     const data = await response.json();
-                    await syncTasks(data.results);
+                    for(const task of data){
+                        await Task.save(task)
+                    }
                 } 
                 else {
                     console.error('API error', response.status);
@@ -69,13 +71,16 @@ export default function Index() {
         
         const fetchMeta = async () => {
             try {
-                  await syncRespondentMeta()
+                const response = await fetchWithAuth('/api/record/respondents/meta/');
+                const data = await response.json();
+                await storeMeta(data);
             }
             catch (err) {
                 console.error('Auth error, user should login again', err);
             }
         }
         fetchMeta();
+        
         const fetchMe = async () => {
             try {
                 console.log('fetching tasks...');
@@ -95,7 +100,7 @@ export default function Index() {
         }
         fetchMe();
     }, [])
-    console.log(me)
+
     return (
         <StyledScroll>
             <StyledText type='title'> {me ? `Welcome, ${me.first_name} ${me.last_name}!` :  'Welcome!'}</StyledText>

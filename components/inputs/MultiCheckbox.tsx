@@ -2,19 +2,21 @@ import theme from '@/themes/themes';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import StyledText from './styledText';
-export default function MultiCheckboxList({ values, label, selected = [], onChange }) {
-    const toggleValue = (value) => {
-        const updated = selected.includes(value)
-            ? selected.filter(v => v !== value)
-            : [...selected, value];
+import StyledText from '../styledText';
+
+export default function MultiCheckbox({ options, value, label, onChange, error }) {
+    const toggleValue = (val) => {
+        const updated = value.includes(val)
+            ? value.filter(v => v !== val)
+            : [...value, val];
         onChange(updated);
     };
 
     return (
         <View style={styles.container}>
-            {values.map(item => {
-                const checked = selected.includes(item.value);
+            <StyledText type='defaultSemiBold'>{label}</StyledText>
+            {options.map(item => {
+                const checked = value.includes(item.value);
                 return (
                     <TouchableOpacity
                         key={item.value}
@@ -31,6 +33,7 @@ export default function MultiCheckboxList({ values, label, selected = [], onChan
                     </TouchableOpacity>
                 );
             })}
+            {error && <StyledText style={styles.errorText}>{error}</StyledText>}
         </View>
     );
 }
@@ -40,4 +43,12 @@ const styles = StyleSheet.create({
     label: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
     checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
     checkboxLabel: { marginLeft: 8, fontSize: 16 },
+    errorText:{
+        color: theme.colors.errorText,
+        backgroundColor: theme.colors.errorBg,
+        padding: 5,
+        margin: 10,
+        borderWidth: 4,
+        borderColor: theme.colors.error,
+    },
 });

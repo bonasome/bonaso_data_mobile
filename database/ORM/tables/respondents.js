@@ -1,4 +1,24 @@
-import BaseModel from "../ORM/base";
+import fetchWithAuth from '@/services/fetchWithAuth';
+import BaseModel from '../base';
+import { Interaction } from './interactions';
+
+
+export class KPStatus extends BaseModel {
+    static table = 'kp_status';
+
+    static fields = {
+        name: {type: 'text'},
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
+    }
+}
+export class DisabilityStatus extends BaseModel {
+    static table = 'disability_status';
+
+    static fields = {
+        name: {type: 'text'},
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
+    }
+}
 
 export class Respondent extends BaseModel {
     static table = 'respondents';
@@ -19,67 +39,72 @@ export class Respondent extends BaseModel {
         district: {type: 'text'},
         citizenship: {type: 'text'},
         email: {type: 'text', allow_null: true},
-        contact_no: {type: 'text', allow_null: true},
+        phone_number: {type: 'text', allow_null: true},
         created_at: {type: 'text', default: new Date().toISOString()},
-        hiv_positive: {type: 'boolean', allow_null: true},
+        hiv_positive: {type: 'integer', allow_null: true},
         date_positive: {type: 'text', allow_null: true},
         term_began: {type: 'text', allow_null: true},
         term_ended: {type: 'text', allow_null: true},
-        synced: {type: 'boolean', default: 0}
+        synced: {type: 'integer', default: 0}
     }
+
+    static searchCols = ['first_name', 'last_name', 'uuid', 'village', 'id_no'];
 
     static relationships = [
-        {model: KPStatus, name: 'kp_status', onCol: 'respondent', onDelete: 'cascade', fetch: true}, 
-        {model: DisabilityStatus, name: 'disability_status', onCol: 'respondent', onDelete: 'cascade', fetch: true}, 
-        {name: 'interactions', onCol: 'respondent', onDelete: 'protect', fetch: false}
+        {model: KPStatus, field: 'kp_status', name: 'kp_status', relCol: 'respondent', thisCol: 'id', onDelete: 'cascade', fetch: true}, 
+        {model: DisabilityStatus, field: 'disability_status', name: 'disability_status', relCol: 'respondent', thisCol: 'id', onDelete: 'cascade', fetch: true}, 
+        {model: Interaction, field: 'interactions', name: 'interactions', relCol: 'respondent_local', thisCol: 'id', onDelete: 'cascade', fetch: true},
     ]
-}
 
-export class KPStatus extends BaseModel {
-    static table = 'kp_status';
+    static async save(data, id, col = 'id') {
+        const { kp_status = [], disability_status = [], ...mainData } = data;
 
-    static fields = {
-        name: {type: 'text'},
-        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
-        synced: {type: 'boolean', default: 0}
+        // Save main record first
+        const savedId = await super.save(mainData, id, col);
+
+        // Save related KP statuses
+        for (const kp of kp_status) {
+            await KPStatus.save({ name: kp, respondent: savedId });
+        }
+
+        // Save related disability statuses
+        for (const dis of disability_status) {
+            await DisabilityStatus.save({ name: dis, respondent: savedId });
+        }
+
+        return savedId; // Return id so caller can fetch full object if needed
+    }
+
+    static async upload(id) {
+        if(!id) return;
+        console.log(id)
+        let instance = await Respondent.find(id)
+        let ser = await instance.serialize();
+        console.log(ser)
+        ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
+        ser.disability_status_names = ser.disability_status.map((d) => (d.name));
+        try{
+            console.log('uploading respondent', ser);
+            const response = await fetchWithAuth(`/api/record/respondents/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ser),
+            });
+            const data = await response.json();
+            if(response.ok){
+                return data.id
+            }
+            else{
+                console.error(data)
+            }
+            
+        }
+        catch(err){
+            console.error(err);
+        }
     }
 }
-export class DisabilityStatus extends BaseModel {
-    static table = 'disability_status';
 
-    static fields = {
-        name: {type: 'text'},
-        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
-        synced: {type: 'boolean', default: 0}
-    }
-}
 
-export class Interaction extends BaseModel {
-    static table = 'interactions'
-
-    static fields = {
-        date: {type: 'text'},
-        location: { type: 'text'},
-        numeric_component: {type: 'integer', allow_null: true},
-        task: {type: 'integer', relationship: {table: 'task', column: 'id'}},
-        respondent_local: {type: 'integer', relationship: {table: 'respondent', column: 'id'}},
-        respondent_server: {type: 'integer', relationship: {table: 'respondent', column: 'server_id'}, allow_null: true},
-        synced: {type: 'boolean', default: 0}
-    }
-    static relationships = [
-        {model: InteractionSubcategory, name: 'interaction_subcategory', onCol: 'interaction', onDelete: 'cascade', fetch: true}, 
-    ]
-}
-
-export class InteractionSubcategory extends BaseModel {
-    static table = 'interaction_subcategories';
-
-    static fields = {
-        interaction: {type: 'integer', relationship: {table: 'interactions', column: 'id'}},
-        numeric_component: {type: 'integer', allow_null: true},
-        subcategory: {type: 'integer', relationship: {table: 'indicator_subcategories', column: 'server_id'}},
-        synced: {type: 'boolean', default: 0}, 
-    }
-}
 
 
