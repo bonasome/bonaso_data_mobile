@@ -1,7 +1,17 @@
 import fetchWithAuth from '@/services/fetchWithAuth';
+import { randomUUID } from 'expo-crypto';
 import BaseModel from '../base';
 import { Interaction } from './interactions';
 
+
+export class RespondentLink extends BaseModel {
+    static table = 'respondent_links';
+
+    static fields = {
+        uuid: {type: 'text', primary: true}, //universal id that is used for linking an ID to interactions
+        server_id: {type: 'integer', allow_null: true}, //corresponding server ID that interactions can pull from
+    }
+}
 
 export class KPStatus extends BaseModel {
     static table = 'kp_status';
@@ -24,9 +34,8 @@ export class Respondent extends BaseModel {
     static table = 'respondents';
     
     static fields = {
+        local_id: {type: 'text', primary: true},
         is_anonymous: {type: 'INTEGER', default: 0},
-        server_id: {type: 'integer', allow_null: true},
-        uuid: {type: 'text'},
         id_no: {type: 'text', allow_null: true},
         first_name: {type: 'text', allow_null: true},
         last_name: {type: 'text', allow_null: true},
@@ -58,41 +67,55 @@ export class Respondent extends BaseModel {
 
     static async save(data, id, col = 'id') {
         const { kp_status = [], disability_status = [], ...mainData } = data;
-
+        const newUUID = randomUUID(); //will serve as the primary key and the link key
+        const link = await RespondentLink.save({ uuid: newUUID });
+        mainData.local_id = newUUID
         // Save main record first
-        const savedId = await super.save(mainData, id, col);
 
         // Save related KP statuses
         for (const kp of kp_status) {
-            await KPStatus.save({ name: kp, respondent: savedId });
+            await KPStatus.save({ name: kp, respondent: newUUID });
         }
 
         // Save related disability statuses
         for (const dis of disability_status) {
-            await DisabilityStatus.save({ name: dis, respondent: savedId });
+            await DisabilityStatus.save({ name: dis, respondent: newUUID });
         }
-
-        return savedId; // Return id so caller can fetch full object if needed
+        return newUUID; // Return id so caller can fetch full object if needed
     }
 
-    static async upload(id) {
-        if(!id) return;
-        console.log(id)
-        let instance = await Respondent.find(id)
-        let ser = await instance.serialize();
-        console.log(ser)
-        ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
-        ser.disability_status_names = ser.disability_status.map((d) => (d.name));
+    static async upload() {
+        const unsynced = await Respondent.all();
+        if(unsynced.length === 0){
+            console.log('No interactions to sync');
+            return false;
+        }
+        let toSync = []
+        for(const instance of unsynced){
+            let ser = await instance.serialize();
+            ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
+            ser.disability_status_names = ser.disability_status.map((d) => (d.name));
+            toSync.push(ser);
+        }
         try{
-            console.log('uploading respondent', ser);
-            const response = await fetchWithAuth(`/api/record/respondents/`, {
+            console.log('uploading respondents', ser);
+            const response = await fetchWithAuth(`/api/record/respondents/mobile/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(ser),
+                body: JSON.stringify(toSync),
             });
             const data = await response.json();
             if(response.ok){
-                return data.id
+                const map = data.mappings;
+                for(const instance of map){
+                    const local = instance.local_id;
+                    const server = instance.server_id;
+                    const updated = await RespondentLink.save({ 'server_id': server }, local, 'uuid');
+                    await Respondent.delete(local, 'local_id');
+                };
+                if(data.errors){
+                    console.error(data.errors);
+                }
             }
             else{
                 console.error(data)

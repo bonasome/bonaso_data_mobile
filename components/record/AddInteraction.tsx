@@ -8,7 +8,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
-export default function AddInteraction({ respondent, tasks, fromLocal }){
+export default function AddInteraction({ respondent, tasks, uuid }){
     const { isServerReachable } = useConnection();
     const [doi, setDoi] = useState(new Date());
     const [location, setLocation] = useState('');
@@ -242,13 +242,12 @@ export default function AddInteraction({ respondent, tasks, fromLocal }){
 
     const handleSubmit = async() => {
         try{
-            console.log('submitting tasks...')
+            console.log('submitting tasks...');
             for(const task of selected){
                 const data = {
                     date: doi.toISOString().split('T')[0],
                     location: location,
-                    respondent_local: fromLocal ? respondent.id : null,
-                    respondent_server: fromLocal ? null : respondent.id,
+                    respondent_uuid: uuid,
                     task: task.id,
                     numeric_component: number[task.id] || null,
                     subcategory_data: subcats[task.id] || []

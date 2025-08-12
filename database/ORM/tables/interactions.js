@@ -1,6 +1,7 @@
 import fetchWithAuth from '@/services/fetchWithAuth';
 import BaseModel from '../base';
 import { IndicatorSubcategory } from './indicators';
+import { RespondentLink } from './respondents';
 export class InteractionSubcategory extends BaseModel {
     static table = 'interaction_subcategories';
 
@@ -18,12 +19,11 @@ export class Interaction extends BaseModel {
     static table = 'interactions'
 
     static fields = {
-        date: {type: 'text'},
-        location: { type: 'text'},
+        interaction_date: {type: 'text'},
+        interaction_location: { type: 'text'},
         numeric_component: {type: 'integer', allow_null: true},
         task: {type: 'integer', relationship: {table: 'task', column: 'id'}},
-        respondent_local: {type: 'integer', relationship: {table: 'respondent', column: 'id'}, allow_null: true},
-        respondent_server: {type: 'integer', relationship: {table: 'respondent', column: 'server_id'}, allow_null: true},
+        respondent_uuid: {type: 'text'},
         synced: {type: 'boolean', default: 0}
     }
     static relationships = [
@@ -45,15 +45,14 @@ export class Interaction extends BaseModel {
 
     //use to sync interactions with a respondent server ID, otherwise call sync for respondent, which I haven't written yet
     static async upload() {
-        const unsynced = await Interaction.filter({'respondent_server': 'not_null'})
+        const unsynced = await Interaction.all();
         if(unsynced.length === 0){
             console.log('No interactions to sync');
             return false;
         }
-        let map = {};
+        let toSync = [];
         for(const item of unsynced){
             let ir = await item.serialize()
-            console.log(ir);
             const subcategory_data = Array.isArray(ir.subcategory_data)
             ? ir.subcategory_data.map(cat => ({
                 id: null,
@@ -61,36 +60,46 @@ export class Interaction extends BaseModel {
                 numeric_component: cat.numeric_component,
             }))
             : [];
-            (map[ir.respondent_server] ??= []).push({
-                interaction_date: ir.date,
-                interaction_location: ir.location,
+            const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
+            const server_id = respondent_link?.server_id;
+            if(!server_id){
+                console.error(`No respondent found in server for interaction ${ir.id}`);
+                continue;
+            }
+            toSync.push({
+                respondent: server_id,
+                interaction_date: ir.interaction_date,
+                interaction_location: ir.interaction_location,
                 task_id: ir.task,
                 numeric_component: ir.numeric_component,
                 subcategories_data: subcategory_data,
+            })
+        }
+        try {
+            const response = await fetchWithAuth(`/api/record/interactions/mobile/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(toSync),
             });
-        }
-        const respondents = Object.keys(map)
-        console.log(map);
-        for(const r of respondents){
-            try {
-                const response = await fetchWithAuth(`/api/record/interactions/batch/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        respondent: r,
-                        tasks: map[r]
-                    }),
-                });
-                if(response.ok) return true;
-                else {
-                    const errorText = await response.text();
-                    throw new Error(`Failed to sync interaction for respondent ${r}: ${errorText}`);
+            const data = await response.json();
+            if(response.ok){
+                const map = data.mappings;
+                for(const instance of map){
+                    const local = instance.local_id;
+                    await Interaction.delete(local);
+                };
+                if(data.errors){
+                    console.error(data.errors);
                 }
-            } 
-            catch (err) {
-                console.error(`Sync failed for respondent ${r}:`, err);
-                return false;
             }
-        }
+            else {
+                const errorText = await response.text();
+                throw new Error(`Failed to sync interaction for respondent ${r}: ${errorText}`);
+            }
+        } 
+        catch (err) {
+            console.error(`Sync failed for respondent ${r}:`, err);
+            return false;
+            }
     }
 }
