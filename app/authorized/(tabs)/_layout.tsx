@@ -21,7 +21,7 @@ export default function TabLayout() {
                 ),
             }}
         />
-        <Tabs.Screen name="record"  
+        <Tabs.Screen name="Record"  
             options={{
                 title: 'Record',
                 tabBarIcon: ({ color, focused }) => (

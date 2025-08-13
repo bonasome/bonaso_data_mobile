@@ -1,7 +1,17 @@
 import { AgeRange, DisabilityType, District, KPType, Sex } from "./tables/meta";
 
-export async function storeMeta(data){
+async function clearTables(){
+    const db = await openDB();
+    //cascade might take care of all of these but play it safe
+    const tables = ['age_ranges', 'sexs', 'disability_types', 'kp_types', 'districts']
+    for(const table of tables){
+        await db.runAsync(`DELETE FROM ${table}`);
+    }
+}
+
+export default async function saveMeta(data){
     const groups = Object.keys(data);
+    await clearTables();
     for(const group of groups){
         console.log(group)
         let model = null;
@@ -29,19 +39,4 @@ export async function storeMeta(data){
             }
         }
     }
-}
-
-export async function getMeta(){
-    const ar = await AgeRange.all()
-    const sexs = await Sex.all();
-    const districts = await District.all()
-    const dts = await DisabilityType.all();
-    const kps = await KPType.all()
-    return {
-        'age_ranges': ar,
-        'sexs': sexs,
-        'districts': districts,
-        'kp_types': kps,
-        'disability_types': dts,
-    }   
 }

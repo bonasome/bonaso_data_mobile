@@ -2,85 +2,22 @@ import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 //import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import { storeMeta } from '@/database/ORM/metaHelper';
 import { migrate, models } from '@/database/ORM/migrate';
-import { Task } from '@/database/ORM/tables/tasks';
 //import resetDatabase from '@/database/resetDB';
-import uploadLocal from '@/database/upload/uploadLocal';
 import fetchWithAuth from "@/services/fetchWithAuth";
 import { getSecureItem } from "@/services/secureStorage";
+import syncMeta from '@/services/syncMeta';
+import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 
-function Me({ me }) {
-    return(
-        <View style={styles.card}>
-            {me  ?
-                <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> :
-                <StyledText type="defaultSemiBold">You are offline! Some features may not be available.</StyledText>
-            }
-        </View>
-    )
-}
-
-export default function Index() {
+function Me() {
     const [me, setMe] = useState(null);
-    const router = useRouter();
-    const { isServerReachable } = useConnection();
-    useEffect(() => {
-        const setDB = async () => {
-            //await resetDatabase();
-            await migrate(models)
-        }
-        setDB();
-    }, [])
 
     useEffect(() => {
-        if(isServerReachable){
-            const syncLocal = async() => {
-                await uploadLocal();
-            }
-            syncLocal();
-        }
-    }, [isServerReachable])
-
-    useEffect(() => {
-        if(!isServerReachable) return;
-        const fetchTasks = async () => {
-            try {
-                console.log('fetching tasks...')
-                const response = await fetchWithAuth('/api/manage/tasks/');
-                if (response.ok) {
-                    const data = await response.json();
-                    for(const task of data){
-                        await Task.save(task)
-                    }
-                } 
-                else {
-                    console.error('API error', response.status);
-                }
-            } 
-            catch (err) {
-                console.error('Auth error, user should login again', err);
-            }
-        }
-        fetchTasks();
-        
-        const fetchMeta = async () => {
-            try {
-                const response = await fetchWithAuth('/api/record/respondents/meta/');
-                const data = await response.json();
-                await storeMeta(data);
-            }
-            catch (err) {
-                console.error('Auth error, user should login again', err);
-            }
-        }
-        fetchMeta();
-        
         const fetchMe = async () => {
             try {
                 console.log('fetching tasks...');
@@ -99,12 +36,41 @@ export default function Index() {
             }
         }
         fetchMe();
-    }, [])
+    }, []);
+
+    return(
+        <View style={styles.card}>
+            {me  ? <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> :
+                <StyledText type="defaultSemiBold">You are offline! Some features may not be available.</StyledText>}
+        </View>
+    )
+}
+
+export default function Index() {
+    const router = useRouter();
+    const { isServerReachable } = useConnection();
+    
+    useEffect(() => {
+        const setDB = async () => {
+            //await resetDatabase();
+            await migrate(models)
+        }
+        setDB();
+    }, []);
+
+    useEffect(() => {
+        if(!isServerReachable) return;
+        const update = async () => {
+            syncTasks();
+            syncMeta();
+        }
+        update();
+    }, []);
 
     return (
         <StyledScroll>
-            <StyledText type='title'> {me ? `Welcome, ${me.first_name} ${me.last_name}!` :  'Welcome!'}</StyledText>
-            <Me me={me} />
+            <StyledText type='title'>Welcome!</StyledText>
+            <Me />
             <View style={styles.card}>
                 <StyledText type="subtitle">Quick Actions</StyledText>
                 <TouchableOpacity style={styles.button} onPress={() => router.push({pathname: '/authorized/(tabs)/about'})}>

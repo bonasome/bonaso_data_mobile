@@ -4,7 +4,6 @@ import openDB from '../dbManager';
 export default class BaseModel {
     static table;
     
-
     static async all() {
         const db = await openDB();
         const results = await db.getAllAsync(`SELECT * FROM ${this.table}`);
@@ -41,39 +40,47 @@ export default class BaseModel {
         return results?.map(r => new this(r)) ?? [];
     }
 
-    static async search(term){
+    static async search(term) {
         const db = await openDB();
-        if(!this.constructor.searchCols){
+        if (!this.searchCols) {
             console.warn('Cannot search this table');
             return [];
         }
-        const clause = this.constructor.searchCols.map((col) => (`${col} LIKE ? COLLATE NOCASE`));
-        clause.join(' OR ');
-        const placeholders = this.constructor.searchCols.map((col) => ('?'))
-        const results  = await db.getAllAsync(`SELECT * FROM ${this.table} WHERE ${clause}`, [placeholders]);
+
+        // Build WHERE clause
+        const clauseStr = this.searchCols
+            .map(col => `${col} LIKE ? COLLATE NOCASE`)
+            .join(' OR ');
+
+        // Build parameter list with wildcards for each search column
+        const params = this.searchCols.map(() => `%${term}%`);
+
+        const sql = `SELECT * FROM ${this.table} WHERE ${clauseStr}`;
+        const results = await db.getAllAsync(sql, params);
+
         return results?.map(r => new this(r)) ?? [];
     }
 
     static async delete(id, col = 'id') {
         //relationships = [{name: table_name, onCol: related_column, onDelete: protect/cascade/nullify}]
         const db = await openDB();
-        const protect = this.constructor.relationships.filter(r => r.onDelete =='protect');
+        const protect = this.relationships.filter(r => r.onDelete =='protect');
         if(protect.length > 0){
             for (const table of protect){
-                const conflicts = await db.getFirstAsync(`SELECT ${table.onCol} FROM ${table.name} WHERE ${table.onCol} = ?`, [id])
-                if(conflicts) throw new Error(`Cannot delete model instance ${id} as it has protected relationships to table ${table.name}.`)
+                const conflicts = await db.getFirstAsync(`SELECT ${table.relCol} FROM ${table.name} WHERE ${table.relCol} = ?`, [id])
+                if(conflicts) throw new Error(`Cannot delete model instance ${id} from table ${this.table} as it has protected relationships to table ${table.name}.`)
             }
         }
-        const cascade = this.constructor.relationships.filter(r => r.onDelete =='cascade')
+        const cascade = this.relationships.filter(r => r.onDelete =='cascade')
         if(cascade.length > 0){
             for(const table of cascade){
-                await db.runAsync(`DELETE FROM ${table.name} WHERE ${table.onCol} = ?`, [id])
+                await db.runAsync(`DELETE FROM ${table.name} WHERE ${table.relCol} = ?`, [id])
             }
         }
-        const setNull = this.constructor.relationships.filter(r => r.onDelete =='nullify')
+        const setNull = this.relationships.filter(r => r.onDelete =='nullify')
         if(setNull.length > 0){
             for(const table of setNull){
-                await db.runAsync(`UPDATE ${table.name}  SET ${table.onCol}=NULL WHERE ${table.onCol} = ?`, [id])
+                await db.runAsync(`UPDATE ${table.name}  SET ${table.relCol}=NULL WHERE ${table.relCol} = ?`, [id])
             }
         }
         await db.runAsync(`DELETE FROM ${this.table} WHERE ${col} = ?`, [id]);

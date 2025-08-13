@@ -9,22 +9,34 @@ import { useEffect, useState } from "react";
 import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function AddInteraction({ respondent, tasks, uuid }){
+    /*PARAMS: 
+        - respondent: the respondent attached to this set of interactions
+        - tasks: a list of tasks pulled from local storage
+        - uuid: the local uuid for the respondent (either found via the respondent local_id if offline or the respondent_link if online)
+    */
+    //context to check connection
     const { isServerReachable } = useConnection();
+    //vars to track high level information about all interactions
     const [doi, setDoi] = useState(new Date());
     const [location, setLocation] = useState('');
-    const [showDate, setShowDate] = useState(false);
-    const [selected, setSelected] = useState([])
-    const [number, setNumber] = useState({});
-    const [subcats, setSubcats] = useState({});
-    const [allowedSubcats, setAllowedSubcats] = useState({});
+    //track selected tasks
+    const [selected, setSelected] = useState([]);
+    //track related information
+    const [number, setNumber] = useState({}); //track numbers for tasks that require numbers (no subcats)
+    const [subcats, setSubcats] = useState({}); //track subcateogry information per task {task_id: [{id: null, subcategory: {name: '', id: 1}, numeric_component: 1}]}
+    const [allowedSubcats, setAllowedSubcats] = useState({}); //similar map that tracks allowed subcategories if there are prerequisites
+    //meta vars to display/manage modals when more info is required
     const [showSubcats, setShowSubcats] = useState(false)
     const [showNumber, setShowNumber] = useState(false);
-    const [modalTask, setModalTask] = useState(null);
-
-
+    const [modalTask, setModalTask] = useState(null); //the task currently employing the modal
+    //show date picker for DOI
+    const [showDate, setShowDate] = useState(false);
+    
+    //modal to enter a number
     function EnterNumber({ task }){
+        //helper local var to make state management easier. Gets transfered to the main number state on submission
         const [localNumber, setLocalNumber] = useState(number[task.id] || '');
-
+        //on cancel, remove this from the list of selected vars
         const onCancel = () => {
             setSelected(prev => prev.filter(s => s.id !== task.id));
             setNumber(prev => ({ ...prev, [task.id]: '' }));
@@ -62,21 +74,27 @@ export default function AddInteraction({ respondent, tasks, uuid }){
             </View>
         )
     }
-
+    //modal for selecting subcategories
     function SelectSubcats({ task }){
+        //helper local var to track local states. Gets transferred to main subcats state on submission
         const [localSubcats, setLocalSubcats] = useState([]);
+        //errors in case no number is entered and a number is required
         const [error, setError] = useState('');
+
+        //if this already has data, preload it by referencing the global state
         useEffect(() => {
             if (showSubcats) {
                 setLocalSubcats(subcats[task.id] || []);
             }
         }, [showSubcats]);
         
+        //on cancel set the subcats as an empty array and remove this from selected
         const onCancel = () => {
             setSubcats(prev => ({ ...prev, [task.id]: [] }));
             setSelected(prev => prev.filter(s => s.id !== task.id));
             setShowSubcats(false);
         };
+        //on submission, make sure each subcat has a numer (if required) and check prereqs
         const onSave = () => {
             if(task.indicator.require_numeric){
                 const flag = localSubcats.some(sc => (
@@ -91,6 +109,8 @@ export default function AddInteraction({ respondent, tasks, uuid }){
             setSubcats(prev => ({ ...prev, [task.id]: localSubcats })); 
             setSelected(prev => [...prev, task]);
             setShowSubcats(false);
+
+            //update tasks that may use this as a prerequisite
             const downstreamTasks = selected.filter(t => String(t?.indicator?.prerequisite) === String(task?.indicator?.id));
             downstreamTasks.forEach(ct => {
                 setAllowedSubcats(prev => ({ ...prev, [ct.id]: localSubcats }));
@@ -105,7 +125,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 }
             });
         }
-
+        //use either the allowed subcats or default to the indicator subcats if nothing is found
         const taskSubcats = allowedSubcats?.[task.id]?.length > 0 ? allowedSubcats?.[task.id] : task.indicator.subcategories;
         return(
             <View>
@@ -128,10 +148,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                                         setLocalSubcats(prev => (
                                             prev.some(v => v.id === sc.id) ? 
                                             prev.filter(v => v.id !== sc.id) : [...localSubcats, sc]
-                                        )
-                                        )
-                                    }}
-                                    activeOpacity={0.7}
+                                    ))}} activeOpacity={0.7}
                                 >
                                     <Ionicons
                                         name={checked ? 'checkbox' : 'square-outline'}
@@ -167,7 +184,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
             </View>
         )
     }
-
+    //function that runs whever a task is selected or removed from the list
     const handlePress = async (task) => {
         //determine if task is already selected
         const existing = selected.filter(s => s.id === task.id);
@@ -183,12 +200,16 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 if (!requiredTask) {
                     alert("This task has a prerequisite that could not be found locally. Please sync tasks.");
                 }
-                let isValid = false;
+                let isValid = false; //helper to track if a prereq is found
+                //first check tasks in the local selected array
                 const inBatch = selected.filter(t => t?.indicator.id.toString() === requiredTask?.indicator.id.toString())
                 if (inBatch.length > 0) {
                     isValid = true;
-                    const interSubcats = subcats[inBatch[0].id]
-                    setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
+                    if(task?.indicator?.match_subcategories_to === prereq.indicator.id){
+                        const interSubcatIDs = subcats[inBatch[0].id]?.map((cat) => (cat?.subcategory?.id))
+                        const interSubcats = task.indicator.subcategories.filter(cat => (interSubcatIDs.includes(cat.id)))
+                        setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
+                    }  
                 } 
                 if (!isValid){
                     if(isServerReachable){
@@ -198,8 +219,9 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                             const validPastInt = data.results.find(inter => inter?.task_detail?.indicator?.id === prereq);
                             if (validPastInt && new Date(validPastInt.interaction_date) <= doi) {
                                 isValid = true;
-                                if (validPastInt?.subcategories) {
-                                    const interSubcats = validPastInt.subcategories.map(t => t.name);
+                                if(task?.indicator?.match_subcategories_to === prereq.indicator.id){
+                                    const interSubcatIDs = subcats[inBatch[0].id]?.map((cat) => (cat?.subcategory?.id))
+                                    const interSubcats = task.indicator.subcategories.filter(cat => (interSubcatIDs.includes(cat.id)))
                                     setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
                                 }
                             }
@@ -210,59 +232,81 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     alert(`This interaction requires that this respondent has had an interaction related to task "${prereq.indicator.code}: ${prereq.indicator.name}". However, we could not find an instance of this on record. If this an interaction with this task is not added, this interaction will be flagged.`)
                 }
             }
-            if(isServerReachable){
-                const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${task.id}`);
-                const data = await response.json()
-                const pastInt = data.results.filter(inter => inter?.task_detail?.indicator?.id === task.indicator.id);
-                const now = new Date();
-                const oneMonthAgo = new Date();
-                oneMonthAgo.setMonth(now.getMonth() - 1);
+            //if this interaction is not flagged with allow repeat and the server is available, send a warning if repeats (within 30 days) are found
+            if(isServerReachable && !task.indicator.allow_repeat){
+                try{
+                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${task.id}`);
+                    const data = await response.json()
+                    const pastInt = data.results.filter(inter => inter?.task?.indicator?.id === task.indicator.id);
+                    const now = new Date();
+                    const oneMonthAgo = new Date();
+                    oneMonthAgo.setMonth(now.getMonth() - 1);
 
-                const tooRecent = pastInt.filter(
-                    inter => new Date(inter?.interaction_date) >= oneMonthAgo
-                );
-                if (tooRecent.length > 0 && existing.length === 0) {
-                    alert('This respondent has had this interaction in the last month.');
+                    const tooRecent = pastInt.filter(
+                        inter => new Date(inter?.interaction_date) >= oneMonthAgo
+                    );
+                    if (tooRecent.length > 0 && existing.length === 0) {
+                        alert('This respondent has had this interaction in the last month. ');
+                    }
+                }
+                catch(err){
+                    console.error('Failed to fetch similar interactions...', err)
                 }
             }
         }
+        //if this has subcats, show the subcat modal to collect the info
         if(task.indicator?.subcategories?.length > 0){
             setModalTask(task);
             setShowSubcats(true);
         }
-        
+        //if no subcats, but requires a number, show that modal
         else if(task.indicator.require_numeric){
             setModalTask(task);
             setShowNumber(true);
         }
+        //otherwise, append it to selected
         else if(existing.length === 0){
             setSelected(prev => [...prev, task])
         }
     }
 
+    //handle submission
     const handleSubmit = async() => {
+        //check date of interaction and date is valid
+        if(!doi || new Date(doi) > new Date()){
+            alert('Please enter a valid interaction date that is not in the future.');
+            return;
+        }
+        //check location
+        if(!location){
+            alert('Interaction location is required.');
+            return;
+        }
+        //save and submit
         try{
             console.log('submitting tasks...');
             for(const task of selected){
                 const data = {
-                    date: doi.toISOString().split('T')[0],
-                    location: location,
+                    interaction_date: doi.toISOString().split('T')[0], //remove timestamp
+                    interaction_location: location,
                     respondent_uuid: uuid,
                     task: task.id,
                     numeric_component: number[task.id] || null,
                     subcategory_data: subcats[task.id] || []
                 }
                 console.log('data', data)
+                //save this data locally
                 const saved = await Interaction.save(data);
-                console.log(saved)
             }
             if(isServerReachable){
+                //if server is available, try to upload it immediately
                 const uploaded = await Interaction.upload()
                 if(uploaded){
                     alert('Uploaded succesfuly!')
                 }
             }
             else{
+                //else alert user that it is saved locally
                 alert('Interactions saved! They will be uploaded next time connection is found.')
             }
         }
@@ -275,17 +319,17 @@ export default function AddInteraction({ respondent, tasks, uuid }){
         setSubcats({});
         setNumber({});
     }
-
+    //helper function to manage the date
     const onChangeDate = (event, selectedDate) => {
         setShowDate(false);
         if (selectedDate) {
             setDoi(selectedDate);
         }
     }
-
+    //if there are not tasks, you can't really do this so return nothing
     if(!tasks || tasks.length === 0) return (
         <View>
-            <StyledText>No tasks.</StyledText>
+            <StyledText>No tasks. Make sure you have synced tasks online.</StyledText>
         </View>
     )
     return(
@@ -305,7 +349,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     />
                     )}
                 </View>
-                <StyledText>Location</StyledText>
+                <StyledText type='darkSemiBold'>Location</StyledText>
                 <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
             </View>
         

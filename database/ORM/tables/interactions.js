@@ -2,6 +2,7 @@ import fetchWithAuth from '@/services/fetchWithAuth';
 import BaseModel from '../base';
 import { IndicatorSubcategory } from './indicators';
 import { RespondentLink } from './respondents';
+import { Task } from './tasks';
 export class InteractionSubcategory extends BaseModel {
     static table = 'interaction_subcategories';
 
@@ -27,7 +28,8 @@ export class Interaction extends BaseModel {
         synced: {type: 'boolean', default: 0}
     }
     static relationships = [
-        {model: InteractionSubcategory, field: 'subcategory_data', name: 'interaction_subcategories', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+        {model: InteractionSubcategory, field: 'subcategory_data', name: 'interaction_subcategories', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
+        {model: Task, field: 'task', name: 'tasks', relCol: 'id', thisCol: 'task', onDelete: 'nothing', fetch: true, many: false}
     ]
 
     static async save(data, id, col = 'id') {
@@ -62,20 +64,23 @@ export class Interaction extends BaseModel {
             : [];
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
             const server_id = respondent_link?.server_id;
+            console.log('server_id', server_id)
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
             }
             toSync.push({
+                local_id: ir.id,
                 respondent: server_id,
                 interaction_date: ir.interaction_date,
-                interaction_location: ir.interaction_location,
-                task_id: ir.task,
+                interaction_location: (ir.interaction_location == '' ? 'There':  ir.interaction_location),
+                task_id: ir.task.id,
                 numeric_component: ir.numeric_component,
                 subcategories_data: subcategory_data,
             })
         }
         try {
+            console.log('uploading interactions');
             const response = await fetchWithAuth(`/api/record/interactions/mobile/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,21 +89,23 @@ export class Interaction extends BaseModel {
             const data = await response.json();
             if(response.ok){
                 const map = data.mappings;
+                console.log('map', map)
                 for(const instance of map){
                     const local = instance.local_id;
+                    console.log('local', local)
                     await Interaction.delete(local);
                 };
-                if(data.errors){
+                if(data.errors.length > 0){
                     console.error(data.errors);
                 }
             }
             else {
-                const errorText = await response.text();
-                throw new Error(`Failed to sync interaction for respondent ${r}: ${errorText}`);
+                console.error(data);
+                return false;
             }
         } 
         catch (err) {
-            console.error(`Sync failed for respondent ${r}:`, err);
+            console.error(`Sync failed:`, err);
             return false;
             }
     }

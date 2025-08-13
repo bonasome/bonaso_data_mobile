@@ -2,8 +2,7 @@ import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useConnection } from "@/context/ConnectionContext";
 import { Task } from "@/database/ORM/tables/tasks";
-import taskHelper from '@/database/ORM/taskHelper';
-import fetchWithAuth from "@/services/fetchWithAuth";
+import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -17,65 +16,46 @@ function TaskCard({ task }) {
                 {task?.indicator && <StyledText type='subtitle' >{task.display_name}</StyledText>}
             </TouchableOpacity>
 
-            {expanded && 
+            {expanded &&  <View>
+                <StyledText type="defaultSemiBold">{task.project.name}</StyledText>
+                {task.indicator.prerequisites && <View>
+                    <StyledText type="subtitle">Prerequisite Indicators</StyledText>
+                    {task.indicator.prerequisites.map((p) => (
+                        <View key={p.id} style={styles.li}>
+                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                            <StyledText>{`${p.indicator.code}: ${p.indicator.name}`}</StyledText>
+                        </View>
+                    ))}
+                </View>}
 
-                <View>
-                    <StyledText type="defaultSemiBold">{task.project.name}</StyledText>
-                    {task.indicator.prerequisites && <View>
-                        <StyledText type="subtitle">Prerequisite Indicators</StyledText>
-                        {task.indicator.prerequisites.map((p) => (
-                            <View key={p.id} style={styles.li}>
-                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                <StyledText>{`${p.indicator.code}: ${p.indicator.name}`}</StyledText>
-                            </View>
-                        ))}
-                    </View>}
+                {task.indicator.subcategories.length > 0 && <View>
+                    <StyledText type="subtitle">Subcategories</StyledText>
+                    {task.indicator.subcategories.map((cat) => (
+                        <View key={cat.id} style={styles.li}>
+                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                            <StyledText>{cat.name}</StyledText>
+                        </View>
+                    ))}
+                </View>}
+                
+                {task.indicator.require_numeric && <StyledText type="defaultSemiBold">
+                    Requires number
+                </StyledText>}
 
-                    {task.indicator.subcategories.length > 0 && <View>
-                        <StyledText type="subtitle">Subcategories</StyledText>
-                        {task.indicator.subcategories.map((cat) => (
-                            <View key={cat.id} style={styles.li}>
-                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                <StyledText>{cat.name}</StyledText>
-                            </View>
-                        ))}
-                    </View>}
-                    {task.indicator.require_numeric && 
-                        <StyledText type="defaultSemiBold">Requires number</StyledText>
-                    }
-                </View>
-            }
+            </View>}
         </View>
     )
-    
 }
-
 
 export default function Tasks() {
     const { isServerReachable } = useConnection();
     const [tasks, setTasks] = useState([]);
 
     useEffect(() => {
-        if (!isServerReachable) return;
-        const maybeSync = async () => {
-            try {
-                const response = await fetchWithAuth('/api/manage/tasks/?indicator_type=respondent');
-                if (response.ok) {
-                    const data = await response.json();
-                    await taskHelper(data.results)
-                } 
-                else {
-                    console.error('API error', response.status);
-                }
-            } 
-            catch (err) {
-                console.error('Auth error, user should login again', err);
-            }
-        };
-
-        maybeSync();
-
         const loadTasks = async () => {
+            if (isServerReachable){
+                await syncTasks();
+            }   
             const myTasks = await Task.all();
             let serialized = await Promise.all(myTasks.map(t => t.serialize()));
             console.log(serialized)

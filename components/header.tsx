@@ -1,15 +1,16 @@
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import deleteIfSynced from "@/database/upload/deleteIfSynced";
-import uploadInteraction from '@/database/upload/uploadInteraction';
-import uploadLocal from '@/database/upload/uploadLocal';
-import uploadRespondents from '@/database/upload/uploadRespondents';
+import { Interaction } from "@/database/ORM/tables/interactions";
+import { Respondent } from "@/database/ORM/tables/respondents";
 import checkServerConnection from "@/services/checkServerConnection";
+import syncMeta from "@/services/syncMeta";
+import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import StyledText from "./styledText";
+
 export default function Header() {
     const { signOut } = useAuth();
     const { isServerReachable, setIsServerReachable } = useConnection();
@@ -20,10 +21,10 @@ export default function Header() {
         console.log(connected)
         if (connected) {
             try {
-                await uploadLocal();
-                await uploadRespondents();
-                await uploadInteraction();
-                await deleteIfSynced();
+                await Respondent.upload();
+                await Interaction.upload();
+                await syncTasks();
+                await syncMeta();
             } 
             catch (err) {
                 console.error('Upload failed during sync:', err);

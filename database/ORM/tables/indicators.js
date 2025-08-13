@@ -8,6 +8,7 @@ export class IndicatorSubcategory extends BaseModel {
         id: {type: 'integer', primary: true},
         name: {type: 'text'},
     }
+    static relationships = []
 }
 
 export class IndicatorPrerequisite extends BaseModel {
@@ -36,7 +37,9 @@ export class Indicator extends BaseModel {
         code: {type: 'text'},
         name: {type: 'text'},
         description: {type: 'text'},
-        require_numeric: {type: 'boolean'}
+        require_numeric: {type: 'boolean'},
+        match_subcategories_to: {type: 'integer', allow_null: true},
+        allow_repeat: {type: 'integer', default: 0, allow_null: true}
     }
 
     static relationships = [

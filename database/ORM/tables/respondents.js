@@ -1,7 +1,6 @@
 import fetchWithAuth from '@/services/fetchWithAuth';
 import { randomUUID } from 'expo-crypto';
 import BaseModel from '../base';
-import { Interaction } from './interactions';
 
 
 export class RespondentLink extends BaseModel {
@@ -11,6 +10,8 @@ export class RespondentLink extends BaseModel {
         uuid: {type: 'text', primary: true}, //universal id that is used for linking an ID to interactions
         server_id: {type: 'integer', allow_null: true}, //corresponding server ID that interactions can pull from
     }
+
+    static relationships = []
 }
 
 export class KPStatus extends BaseModel {
@@ -18,16 +19,18 @@ export class KPStatus extends BaseModel {
 
     static fields = {
         name: {type: 'text'},
-        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
     }
+    static relationships = []
 }
 export class DisabilityStatus extends BaseModel {
     static table = 'disability_status';
 
     static fields = {
         name: {type: 'text'},
-        respondent: {type: 'text', relationship: {table: 'respondents', column: 'id'}},
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
     }
+    static relationships = []
 }
 
 export class Respondent extends BaseModel {
@@ -50,19 +53,18 @@ export class Respondent extends BaseModel {
         email: {type: 'text', allow_null: true},
         phone_number: {type: 'text', allow_null: true},
         created_at: {type: 'text', default: new Date().toISOString()},
-        hiv_positive: {type: 'integer', allow_null: true},
+        hiv_positive: {type: 'integer', default: 0},
         date_positive: {type: 'text', allow_null: true},
+        is_pregnant: {type: 'integer', default: 0},
         term_began: {type: 'text', allow_null: true},
         term_ended: {type: 'text', allow_null: true},
-        synced: {type: 'integer', default: 0}
     }
 
-    static searchCols = ['first_name', 'last_name', 'uuid', 'village', 'id_no'];
+    static searchCols = ['first_name', 'last_name', 'local_id', 'village', 'id_no'];
 
     static relationships = [
-        {model: KPStatus, field: 'kp_status', name: 'kp_status', relCol: 'respondent', thisCol: 'id', onDelete: 'cascade', fetch: true}, 
-        {model: DisabilityStatus, field: 'disability_status', name: 'disability_status', relCol: 'respondent', thisCol: 'id', onDelete: 'cascade', fetch: true}, 
-        {model: Interaction, field: 'interactions', name: 'interactions', relCol: 'respondent_local', thisCol: 'id', onDelete: 'cascade', fetch: true},
+        {model: KPStatus, field: 'kp_status', name: 'kp_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
+        {model: DisabilityStatus, field: 'disability_status', name: 'disability_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
     ]
 
     static async save(data, id, col = 'id') {
@@ -71,7 +73,7 @@ export class Respondent extends BaseModel {
         const link = await RespondentLink.save({ uuid: newUUID });
         mainData.local_id = newUUID
         // Save main record first
-
+        const savedId = await super.save(mainData, id, col);
         // Save related KP statuses
         for (const kp of kp_status) {
             await KPStatus.save({ name: kp, respondent: newUUID });
@@ -95,10 +97,12 @@ export class Respondent extends BaseModel {
             let ser = await instance.serialize();
             ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
             ser.disability_status_names = ser.disability_status.map((d) => (d.name));
+            ser.hiv_status_data = {hiv_positive: ser?.hiv_positive ?? null, date_positive: ser?.date_positive ?? null};
+            ser.pregnancy_data = [{term_began: ser.term_began, term_ended: ser.term_ended}]
             toSync.push(ser);
         }
         try{
-            console.log('uploading respondents', ser);
+            console.log('uploading respondents', toSync);
             const response = await fetchWithAuth(`/api/record/respondents/mobile/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -110,6 +114,7 @@ export class Respondent extends BaseModel {
                 for(const instance of map){
                     const local = instance.local_id;
                     const server = instance.server_id;
+                    console.log(local, server)
                     const updated = await RespondentLink.save({ 'server_id': server }, local, 'uuid');
                     await Respondent.delete(local, 'local_id');
                 };

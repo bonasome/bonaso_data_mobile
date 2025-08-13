@@ -28,26 +28,26 @@ export default function Interactions({ activeRespondent }) {
         }
         else{
             const getLocal = async () => {
-                const localIr = await Interaction.filter({ respondent: activeRespondent.uuid });
+                const localIr = await Interaction.filter({ respondent_uuid: activeRespondent.local_id });
                 let serialized = await Promise.all(localIr.map(ir => ir.serialize()));
                 setInteractions(serialized);
             }
             getLocal();
         }
     }, [activeRespondent]);
-
+    console.log(interactions)
     return (
         <View style={styles.lastStep}>
             <StyledText type="subtitle">Previous Interactions</StyledText>
             {interactions.length > 0 ? (
                 interactions.map((ir) => (<View key={ir.id} style={styles.interactionCard}>
-                    <StyledText type="subtitle">{ir.task?.display_name ?? `${ir.task?.indicator?.code} : ${ir.task?.indicator?.name} (${ir.task?.organization.name}, ${ir.task?.project?.name})`}</StyledText>
+                    <StyledText type="subtitle">{isServerReachable ? ir.task?.display_name : `${ir.task?.indicator?.code} : ${ir.task?.indicator?.name} (${ir.task?.organization?.name}, ${ir.task?.project?.name})`}</StyledText>
                     <StyledText type="default">{new Date(ir.interaction_date).toLocaleDateString()}</StyledText>
                     
-                    {ir?.subcategories?.length > 0 && ir.subcategories.map((cat) => (
+                    {ir?.subcategory_data?.length > 0 && ir.subcategory_data.map((cat) => (
                         <View key={cat.id ?? cat.subcategory} style={styles.li}>
                             <StyledText style={styles.bullet}>{'\u2022'}</StyledText>
-                            <StyledText>{cat?.subcategory.name}</StyledText>
+                            <StyledText>{cat?.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
                         </View>))}
                 </View>))
             ) : (<StyledText>This respondent does not have any interactions on record.</StyledText>)}

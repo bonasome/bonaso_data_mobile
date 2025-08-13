@@ -1,8 +1,19 @@
+import openDB from '@/database/dbManager';
 import { Indicator, IndicatorPrerequisite, IndicatorSubcategory } from './tables/indicators';
 import { Organization, Project, Task } from './tables/tasks';
 
-export default async function taskHelper(data){
+async function clearTables(){
+    const db = await openDB();
+    //cascade might take care of all of these but play it safe
+    const tables = ['tasks', 'projects', 'organizations', 'indicator_subcategories', 'indicators']
+    for(const table of tables){
+        await db.runAsync(`DELETE FROM ${table}`);
+    }
+}
+
+export default async function saveTasks(data){
     if(!data) return;
+    await clearTables();
     for (const item of data){
         const task = {
             id: item.id,
@@ -34,6 +45,8 @@ export default async function taskHelper(data){
             name: item.indicator.name,
             description: item.indicator.description,
             require_numeric: item.indicator.require_numeric,
+            allow_repeat: item.indicator.allow_repeat,
+            match_subcategories_to: item.indicator.match_subcategories_to,
         }
         await Indicator.save(indicator);
 

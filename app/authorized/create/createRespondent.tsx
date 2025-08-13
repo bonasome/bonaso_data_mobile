@@ -2,21 +2,24 @@ import FormSection from '@/components/forms/FormSection';
 import StyledScroll from '@/components/styledScroll';
 import StyledText from '@/components/styledText';
 import { useConnection } from '@/context/ConnectionContext';
-import { getMeta } from '@/database/ORM/metaHelper';
-import { Respondent } from '@/database/ORM/tables/respondents';
+import getMeta from '@/database/ORM/getMeta';
+import { Respondent, RespondentLink } from '@/database/ORM/tables/respondents';
 import theme from '@/themes/themes';
-import { randomUUID } from 'expo-crypto';
 import { router, useNavigation } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import countries from 'world-countries';
 
 export default function CreateRespondent({ existing=null }) {
+    //navigator the help with directions to/from
     const navigation = useNavigation();
+    //connection state
     const { isServerReachable } = useConnection();
-    const [meta, setMeta] = useState(null); //meta containing options/labels for certain fields
+    //meta containing options/labels for certain fields
+    const [meta, setMeta] = useState(null); 
 
-    //load the meta
+    //load the meta (from local storage)
     useEffect(() => {
         let isMounted = true;
         const loadMeta = async () => {
@@ -50,7 +53,7 @@ export default function CreateRespondent({ existing=null }) {
 
             sex: existing?.sex ?? null,
             age_range: existing?.age_range ?? '',
-            dob: existing?.dob ?? '',
+            dob: existing?.dob ?? null,
             
             plot_no: existing?.plot_no ?? '',
             ward: existing?.ward ?? '',
@@ -61,8 +64,16 @@ export default function CreateRespondent({ existing=null }) {
             kp_status: existing?.kp_status?.map((kp) => (kp.name)) ?? [],
             disability_status: existing?.disability_status?.map((d) => (d.name)) ?? [],
             
+            hiv_positive: existing?.hiv_positive ?? false,
+            date_positive: existing?.date_positive ?? null,
+            
+            is_pregnant: existing?.is_pregnant ?? false,
+            term_began: existing?.term_began ?? null,
+            term_ended: existing?.term_ended ?? null,
+
             email: existing?.email ?? '',
             phone_number: existing?.phone_number ?? '',
+
         }
     }, [existing]);
 
@@ -88,39 +99,50 @@ export default function CreateRespondent({ existing=null }) {
                 return;
             }
             data.age_range = null; //dob is the highest truth
+            data.dob = data.dob.toISOString().split('T')[0] //get only the date sans time as a string
         }
-        data.uuid = randomUUID();
+        //try saving/uploading the data
         try{
             console.log('submitting data...');
-            let result = await Respondent.save(data);
+            let result = await Respondent.save(data); //save locally first
+            //if connected, try to upload the data
             if (isServerReachable) {
                 try {
-                    const uploaded = await Respondent.upload(result);
-                    console.log(uploaded);
-                    if (uploaded) alert('Respondent saved and uploaded successfully!');
-                    else alert('Respondent saved, but the upload failed. Will try again next time connection is found.');
-                    router.push({ pathname: '/authorized/(tabs)/record', params: { created: uploaded } });
+                    //upload the respondent
+                    const uploaded = await Respondent.upload();
+                    //get the server ID by pulling its link (which should auto add when uploaded)
+                    const link = await RespondentLink.find(result, 'local_id');
+                    //automatically redirect the user to the record page with this respondent loaded by passing the server id
+                    router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: link.server_id } });
                     return uploaded
                 } 
                 catch (err) {
-                    alert('Respondent saved, but the upload failed. Will try again next time connection is found.')
+                    alert('Respondent saved, but the upload failed. Will try again next time connection is found.');
                     console.error('Upload failed', err);
                 }
             }
             else{
                 alert('Respondent saved. Will sync next time connection is found.')
             }
-            router.push({ pathname: '/authorized/(tabs)/record', params: { created: result } });
+            //if not connected/uploaded, redirect using the local id
+            router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: result } });
             return result
         }
         catch(err){
             console.error(err);
         }   
     };
-  
-    //section map containing information for each field
-    const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false })
+    const countryList = countries.map(c => ({
+        label: c.name.common,
+        value: c.cca2,       // ISO 3166-1 alpha-2 code
+    }));
 
+    //anon watch to show or hide specific fields based on anon status
+    const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false });
+    //show extra date fields if hiv/pregnant
+    const hiv = useWatch({ control, name: 'hiv_positive', defaultValue: false });
+    const pregnant = useWatch({ control, name: 'is_pregnant', defaultValue: false });
+    //anon toggle
     const isAnon = [
         { name: 'is_anonymous', label: "Does this respondent wish to remain anonymous", 
             type: "checkbox", tooltip: `We encourage respondents to provide us with as much information as possible
@@ -128,6 +150,7 @@ export default function CreateRespondent({ existing=null }) {
             As such, you can mark a respondent as anonymous, in which case they will not have to give an personally identifying information.`
         }
     ]
+    //basics for non anon
     const notAnonBasic= [
         { name: 'id_no', label: "Omang/ID/Passport Number (Required)", type: "text", rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },
         {name: 'first_name', label: 'First Name (Include Middle Name if Applicable) (Required)', type: 'text',
@@ -135,21 +158,25 @@ export default function CreateRespondent({ existing=null }) {
         {name: 'last_name', label: 'Last Name (Required)', type: 'text',  rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },  
         {name: 'dob', label: 'Date of Birth (Required)', type: 'date',  rules: { required: "Required" } },
     ]
+    //basics for all
     const basics = [
         {name: 'sex', label: 'Sex (Required)', type: 'radio', options: meta?.sexs,  rules: { required: "Required" },
             tooltip: 'Please provide the sex/gender that this person currently identifies as, or select "Non-Binary".'
         }
     ]
+    //basics for anon
     const anonBasic = [
         {name: 'age_range', label: 'Respondent Age Range (Required)', type: 'select',
             options: meta?.age_ranges,  rules: { required: "Required" } },
     ]
+    //address (plot no/ward), non-anon only
     const address = [
         {name: 'plot_no', label: 'Plot Number (or description)', type: 'text', 
             tooltip: 'If you may visit this person again, you may want to record some information about where they live.'
         },
         {name: 'ward', label: 'Kgotlana/Ward', type: 'text', rules: {maxLength: { value: 255, message: 'Maximum length is 255 characters.'}},},
     ]
+    //more general geo info, shown to all
     const geo = [
         {name: 'village', label: 'Village/Town/City (Primary Residence) (Required)', type: 'text',  rules: { required: "Required",
             maxLength: { value: 255, message: 'Maximum length is 255 characters.'},
@@ -160,18 +187,36 @@ export default function CreateRespondent({ existing=null }) {
             options: meta?.districts, 
             tooltip: 'Please provide the district where this person currently resides.'
         },
-        {name: 'citizenship', label: 'Citizenship/Nationality (Required)', type: 'text',  rules: { required: "Required",
-            maxLength: { value: 255, message: 'Maximum length is 255 characters.'},
-         },
+        {name: 'citizenship', label: 'Citizenship/Nationality (Required)', type: 'select',  rules: { required: "Required"},
+            options: countryList,
             tooltip: 'Please provide the village, town, or city that best describes where this person currently resides.'
         },
     ]
+    //kp/disability, shown to all
     const special = [
         {name: 'kp_status', label: 'Key Population Status (Select all that apply)', type: 'multiselect',  
             options: meta?.kp_types},
         {name: 'disability_status', label: 'Disability Status (Select all that apply)', type: 'multiselect',  
             options: meta?.disability_types},
     ]
+    //hiv positive
+    const hivpos = [
+        {name: 'hiv_positive', label: 'Is this person HIV Positive?', type: 'checkbox'}
+    ]
+    //date positive if hiv positive
+    const datepos = [
+        {name: 'date_positive', label: 'What date did this person become HIV positive (enter today if unsure) (Required)', type: 'date',  rules: { required: "Required" } },
+    ]
+    //is pregnant
+    const isPregnant = [
+        {name: 'is_pregnant', label: 'Is this person pregnant (or were they recently pregnany)?', type: 'checkbox'}
+    ]
+    //prengnancy dates if pregnant
+    const pregDates = [
+        {name: 'term_began', label: 'When did this person become pregnant? (Required)', type: 'date', rules: { required: "Required" } },
+        {name: 'term_ended', label: "When did this person's pregnancy end (leave blank if ongoing)?", type: 'date'},
+    ]
+    //contact info if not anon
     const contact = [
         {name: 'email', label: 'Email', type: 'email-address',  rules: {pattern: {value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
             message: 'Please enter a valid email.',
@@ -195,6 +240,10 @@ export default function CreateRespondent({ existing=null }) {
             {!anon && <FormSection fields={address} control={control} header='Address'/>}
             <FormSection fields={geo} control={control} header='Geographic Information'/>
             <FormSection fields={special} control={control} header='Additional Information'/>
+            <FormSection fields={hivpos} control={control} header='HIV Status'/>
+            {hiv && <FormSection fields={datepos} control={control} header='Date HIV Positive'/>}
+            <FormSection fields={isPregnant} control={control} header='Pregnancy Status'/>
+            {pregnant && <FormSection fields={pregDates} control={control} header='Pregnancy Dates (for most recent/active term)'/>}
             {!anon && <FormSection fields={contact} control={control} header='Contact Information'/> }
 
             <TouchableOpacity style={styles.button} onPress={handleSubmit(onSubmit, (formErrors) => {

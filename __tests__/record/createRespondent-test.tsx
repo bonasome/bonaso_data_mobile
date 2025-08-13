@@ -1,4 +1,4 @@
-import CreateRespondent from '@/app/authorized/create/createRespondent';
+import CreateRespondent from '@/app/authorized/create/CreateRespondent';
 import { useConnection } from '@/context/ConnectionContext';
 import saveRespondent from '@/database/store/saveRespondent';
 import * as metaMap from '@/database/sync/mapMeta';

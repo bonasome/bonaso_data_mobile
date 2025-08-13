@@ -21,7 +21,7 @@ export default function Record() {
     const [respondents, setRespondents] = useState([]);
     const [activeRespondent, setActiveRespondent] = useState(null);
     const [respondentUUID, setRespondentUUID] = useState(null);
-    const [display_name, setDisplayName] = useState('')
+    const [displayName, setDisplayName] = useState('')
     const { redirected } = useLocalSearchParams();
 
     //if the user just created a respondent, automatically redirect them with that respondent preloaded
@@ -30,10 +30,12 @@ export default function Record() {
             (async () => {
                 //if no connection, try to find the instance from the local dv
                 if(!isServerReachable){
-                    const found = await Respondent.find(redirected);
+                    console.log('id', redirected)
+                    const found = await Respondent.find(redirected, 'local_id');
+                    console.log('found', found)
                     setActiveRespondent(found);
-                    setRespondentUUID(found.uuid);
-                    setDisplayName(found.is_anonymous ? `Anonymous Respondent ${found.uuid}` : `${found.first_name} ${found.last_name}`)
+                    setRespondentUUID(found.local_id);
+                    setDisplayName(found.is_anonymous ? `Anonymous Respondent ${found.local_id}` : `${found.first_name} ${found.last_name}`)
                 }
                 //if there is connection, try to get the respondent from the server (since it should be there)
                 else{   
@@ -42,6 +44,7 @@ export default function Record() {
                         const data = await response.json();
                         if (response.ok) {
                             selectRespondent(data);
+                            setDisplayName(data.display_name)
                         } 
                         else {
                             console.error('API error', response.status);
@@ -123,13 +126,16 @@ export default function Record() {
         }
         //otherwise, the user is offline, and are relying on local database queries
         else{
-            const existing = await RespondentLink.find(r.uuid, 'uuid');
+            const existing = await RespondentLink.find(r.local_id, 'uuid');
             if(existing){
-                setRespondentUUID(existing.uuid);
-                setActiveRespondent(existing)
+                const respondent = await Respondent.find(r.local_id, 'local_id');
+                setRespondentUUID(respondent.local_id);
+                setActiveRespondent(respondent)
+                setDisplayName(respondent.is_anonymous ? `Anonymous Respondent ${respondent.local_id}` : 
+                    `${respondent.first_name} ${respondent.last_name}`)
             }
             else{
-                console.error(`Respondent ${r.uuid} not found in local DB.`);
+                console.error(`Respondent ${r.local_id} not found in local DB.`);
                 alert('Something went wrong. Please try again later.')
             }
         }
@@ -137,7 +143,7 @@ export default function Record() {
     //redirect to create page
     function goToCreate(){
         router.push({
-            pathname: 'authorized/create/createRespondent',
+            pathname: 'authorized/create/CreateRespondent',
         })
     }
 
@@ -156,7 +162,7 @@ export default function Record() {
                             style={styles.textInput}
                         />
                         <View>
-                        {respondents.length > 0 && isSearching && search !== '' && (
+                        {respondents.length > 0 && isSearching && (!isServerReachable || (search !== '' && isServerReachable)) && (
                             <ScrollView style={styles.searchBox}>
                             {respondents.map((r) => (
                                 <TouchableOpacity
@@ -166,7 +172,10 @@ export default function Record() {
                                         selectRespondent(r);
                                         setIsSearching(false);
                                 }}>
-                                    <StyledText style={styles.searchEntry} type="darkSemiBold">{display_name}</StyledText>
+                                    <StyledText style={styles.searchEntry} type="darkSemiBold">{
+                                    isServerReachable ? r.display_name : 
+                                        (r.is_anonymous ? `Anonymous Respondent ${r.local_id}` : `${r.first_name} ${r.last_name}`)
+                                    }</StyledText>
                                 </TouchableOpacity>
                             ))}
                             </ScrollView>
@@ -176,7 +185,7 @@ export default function Record() {
 
                     {activeRespondent && !isSearching && (
                         <View>
-                        <StyledText type='subtitle'>You're viewing {display_name}</StyledText>
+                        <StyledText type='subtitle'>You're viewing {displayName}</StyledText>
                         <StyledText>{activeRespondent.village}, {activeRespondent.district}</StyledText>
                         <TouchableOpacity style={styles.button} onPress={() => setActiveRespondent(null)}>
                             <StyledText style={styles.buttonText} type="defaultSemiBold">
