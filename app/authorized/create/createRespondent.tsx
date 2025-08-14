@@ -4,20 +4,33 @@ import StyledText from '@/components/styledText';
 import { useConnection } from '@/context/ConnectionContext';
 import getMeta from '@/database/ORM/getMeta';
 import { Respondent, RespondentLink } from '@/database/ORM/tables/respondents';
+import checkDate from '@/services/checkDate';
 import theme from '@/themes/themes';
-import { router, useNavigation } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import countries from 'world-countries';
 
-export default function CreateRespondent({ existing=null }) {
+export default function CreateRespondent() {
     //navigator the help with directions to/from
     const navigation = useNavigation();
+    const { local_id } = useLocalSearchParams();
     //connection state
     const { isServerReachable } = useConnection();
+    const [existing, setExisting] = useState(null);
     //meta containing options/labels for certain fields
     const [meta, setMeta] = useState(null); 
+
+     useEffect(() => {
+        if (local_id) {
+            (async () => {
+                const found = await Respondent.find(local_id, 'local_id');
+                const serialized = await found?.serialize();
+                setExisting(serialized);
+            })();
+        }
+    }, [local_id])
 
     //load the meta (from local storage)
     useEffect(() => {
@@ -99,19 +112,36 @@ export default function CreateRespondent({ existing=null }) {
                 return;
             }
             data.age_range = null; //dob is the highest truth
-            data.dob = data.dob.toISOString().split('T')[0] //get only the date sans time as a string
+            data.dob = checkDate(data.dob);
+            if(!data.dob){
+                 alert('Date of Birth is Required.');
+                return
+            }
         }
+        data.date_positive = checkDate(data.date_positive);
+        if(data.hiv_positive && !data.date_positive){
+            alert('A valid date positive is Required.');
+            return;
+        }
+        data.term_began = checkDate(data.term_began)
+        if(data.is_pregnant && !data.term_began){
+            alert('A valid term began date is Required.'); 
+            return;
+        }
+        data.term_ended = checkDate(data.term_ended); //this is nominally optional
+
+        console.log('here')
         //try saving/uploading the data
         try{
             console.log('submitting data...');
-            let result = await Respondent.save(data); //save locally first
+            let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
             //if connected, try to upload the data
             if (isServerReachable) {
                 try {
                     //upload the respondent
                     const uploaded = await Respondent.upload();
                     //get the server ID by pulling its link (which should auto add when uploaded)
-                    const link = await RespondentLink.find(result, 'local_id');
+                    const link = await RespondentLink.find(result, 'uuid');
                     //automatically redirect the user to the record page with this respondent loaded by passing the server id
                     router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: link.server_id } });
                     return uploaded
@@ -137,6 +167,12 @@ export default function CreateRespondent({ existing=null }) {
         value: c.cca2,       // ISO 3166-1 alpha-2 code
     }));
 
+    useEffect(() => {
+        if (existing) {
+            reset(defaultValues);
+        }
+    }, [existing, reset, defaultValues]);
+
     //anon watch to show or hide specific fields based on anon status
     const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false });
     //show extra date fields if hiv/pregnant
@@ -153,7 +189,7 @@ export default function CreateRespondent({ existing=null }) {
     //basics for non anon
     const notAnonBasic= [
         { name: 'id_no', label: "Omang/ID/Passport Number (Required)", type: "text", rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },
-        {name: 'first_name', label: 'First Name (Include Middle Name if Applicable) (Required)', type: 'text',
+        {name: 'first_name', label: 'First Name (Required)', type: 'text',
             rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },
         {name: 'last_name', label: 'Last Name (Required)', type: 'text',  rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} } },  
         {name: 'dob', label: 'Date of Birth (Required)', type: 'date',  rules: { required: "Required" } },
@@ -230,6 +266,10 @@ export default function CreateRespondent({ existing=null }) {
 
     if(!meta?.sexs) return <View></View> //return nothing if the meta has not loaded
     return (
+        <KeyboardAvoidingView
+                        style={styles.bg}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    >
         <StyledScroll>
             <View style={styles.form}>
             <StyledText type='title'>Creating New Respondent</StyledText>
@@ -260,10 +300,15 @@ export default function CreateRespondent({ existing=null }) {
 
             </View>
         </StyledScroll>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
+    bg: {
+        flex: 1,
+        backgroundColor: theme.colors.bonasoDarkAccent,
+    },
     form:{
         marginTop: 30,
     },

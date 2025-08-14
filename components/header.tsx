@@ -6,9 +6,13 @@ import checkServerConnection from "@/services/checkServerConnection";
 import syncMeta from "@/services/syncMeta";
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
+import AntDesign from '@expo/vector-icons/AntDesign';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import IconInteract from "./inputs/IconInteract";
 import StyledText from "./styledText";
 
 export default function Header() {
@@ -42,19 +46,23 @@ export default function Header() {
                 color={isServerReachable ? theme.colors.bonasoMain : theme.colors.errorBg} 
             />
             <StyledText style={styles.headerText} type="defaultSemiBold">BONASO Data Portal</StyledText>
-            <TouchableOpacity onPress={() => sync()} style={styles.button}>
-                <StyledText style={styles.buttonText}>Sync</StyledText>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => signOut()} style={styles.button}>
-                <StyledText style={styles.buttonText}>Logout</StyledText>
-            </TouchableOpacity>
+            <View style={styles.actions}>
+                <IconInteract onPress={() => signOut()} icon={<AntDesign name="exclamationcircle" size={24} color="#fff" />} />
+                <IconInteract onPress={() => sync()} icon={<FontAwesome5 name="sync" size={20} color="#fff" />} />
+                <IconInteract onPress={() => signOut()} icon={<MaterialCommunityIcons name="logout" size={24} color="#fff" />} />
+                
+            </View>
+
         </View>
     )
 }
 
 const styles = StyleSheet.create({
     header:{
-        padding: 20,
+        paddingTop: 20,
+        paddingStart: 20,
+        paddingEnd: 20,
+        paddingBottom: 10,
         backgroundColor: theme.colors.bonasoUberDarkAccent,
         flexDirection: 'row',
         height: 85,
@@ -63,20 +71,14 @@ const styles = StyleSheet.create({
         left: 7,
         top: 20,
     },
-    button: {
-        marginTop: 8,
-        marginLeft: 'auto',
-        backgroundColor: theme.colors.bonasoLightAccent,
-        padding: 7,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
     headerText:{
         fontSize: 17,
         marginLeft: 30,
         marginTop: 20,
+    },
+    actions: {
+        marginStart: 'auto',
+        flexDirection: 'row',
+        marginTop: 14,
     }
 })

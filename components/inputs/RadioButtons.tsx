@@ -6,7 +6,7 @@ import StyledText from '../styledText';
 export default function RadioButtons({ options, value, label, onChange, error }) {
     return (
         <View style={styles.container}>
-            <StyledText type='subtitle'>{label}</StyledText>
+            <StyledText type='defaultSemiBold' style={{ marginBottom: 4 }}>{label}</StyledText>
             {options.map(item => {
                 return (
                     <TouchableOpacity
@@ -18,7 +18,7 @@ export default function RadioButtons({ options, value, label, onChange, error })
                         <Ionicons
                             name={item.value == value ? 'radio-button-on-sharp' : 'radio-button-off-sharp'}
                             size={24}
-                            color={item.value == value ? theme.colors.bonasoLightAccent : '#fff'}
+                            color={item.value == value ? '#fff' : '#fff'}
                         />
                         <StyledText type='defaultSemiBold' style={styles.buttonLabel}>{item.label}</StyledText>
                     </TouchableOpacity>

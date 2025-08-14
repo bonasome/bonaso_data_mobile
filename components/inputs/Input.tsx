@@ -5,8 +5,8 @@ import StyledText from "../styledText"
 
 export default function Input({ value, onChange, label, error, placeholder='', keyboard=null}){
     return(
-        <View>
-            <StyledText>{label}</StyledText>
+        <View style={styles.field}>
+            <StyledText type="defaultSemiBold">{label}</StyledText>
             <TextInput style={styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'}/>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}
         </View>
@@ -14,6 +14,9 @@ export default function Input({ value, onChange, label, error, placeholder='', k
 }
 
 const styles = StyleSheet.create({
+    field: {
+        marginBottom: 10,
+    },
     input: {
         padding: 15,
         backgroundColor: '#fff',

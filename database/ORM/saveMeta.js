@@ -1,5 +1,5 @@
+import openDB from "../dbManager";
 import { AgeRange, DisabilityType, District, KPType, Sex } from "./tables/meta";
-
 async function clearTables(){
     const db = await openDB();
     //cascade might take care of all of these but play it safe

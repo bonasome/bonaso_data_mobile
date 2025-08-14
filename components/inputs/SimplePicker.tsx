@@ -1,17 +1,19 @@
+import cleanLabel from '@/services/cleanLabels';
 import theme from '@/themes/themes';
 import { Picker } from '@react-native-picker/picker';
 import { StyleSheet, View } from 'react-native';
 import StyledText from '../styledText';
-export default function SimplePicker({options, name, onChange, value, error }) {
+export default function SimplePicker({options, label, name, onChange, value, error }) {
     return(
         <View>
+            <StyledText type="defaultSemiBold">{label}</StyledText>
             <Picker style={styles.picker}
                 onValueChange={(val) => onChange(val)}
                 selectedValue={value} testID={`picker`}
             >
-                <Picker.Item label={`Select a ${name}`} value="" />
+                <Picker.Item color={theme.colors.bonasoUberDarkAccent} label={`Select a${['a', 'e', 'i', 'o', 'u'].includes(name.charAt(0)) ? 'n' : ''} ${cleanLabel(name)}`} value="" />
                     {options && options.map(item => (
-                        <Picker.Item key={item.value} label={item.label} value={item.value} />
+                        <Picker.Item key={item.value} color={theme.colors.bonasoUberDarkAccent} label={item.label} value={item.value} />
                     ))}
             </Picker>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}

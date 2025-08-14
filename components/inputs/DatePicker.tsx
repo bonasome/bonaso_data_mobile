@@ -3,12 +3,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import StyledText from "../styledText";
+import StyledButton from './StyledButton';
 
-export default function DatePicker({ value, onChange, error }){
+export default function DatePicker({ value, onChange, error, label }){
     const [showDate, setShowDate] = useState(false);
 
     return(
         <View>
+            <StyledText type="defaultSemiBold">{label}</StyledText>
             <TouchableOpacity onPress={() => setShowDate(true)} style={styles.button}>
                 <StyledText style={styles.buttonText} type="defaultSemiBold">
                 {value ? new Date(value).toDateString() : 'Select date'}
@@ -25,7 +27,8 @@ export default function DatePicker({ value, onChange, error }){
                 }}
                 />
             )}
-        {error && <StyledText style={styles.errorText}>{error}</StyledText>}
+            {value && <StyledButton onPress={() => onChange(null)} label={'Clear Date'} />}
+            {error && <StyledText style={styles.errorText}>{error}</StyledText>}
         </View>
     )
 }
