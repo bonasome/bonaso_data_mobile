@@ -3,10 +3,12 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
 import fetchWithAuth from '@/services/fetchWithAuth';
 import theme from "@/themes/themes";
-import Ionicons from '@expo/vector-icons/Ionicons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import MultiCheckbox from "../inputs/MultiCheckbox";
+import MultiCheckboxNum from "../inputs/MultiCheckboxNum";
+import StyledButton from "../inputs/StyledButton";
 
 export default function AddInteraction({ respondent, tasks, uuid }){
     /*PARAMS: 
@@ -132,53 +134,20 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 <Modal transparent={true}
                     visible={showSubcats}
                     animationType="slide"
-                    onRequestClose={() => setShowSubcats(false)}>
-                    
+                    onRequestClose={() => setShowSubcats(false)}
+                >
                     <View style={styles.modalContent}>
-                    <StyledText style={styles.modalTitle} type='subtitle'>Please select all relevent subcategories.</StyledText>
-                    {error != '' && <StyledText>{error}</StyledText>}
-                    <View style={styles.container}>
-                        {taskSubcats.map(sc => {
-                            const checked = localSubcats.filter(s => s.id === sc.id).length > 0;
-                            return (
-                                <TouchableOpacity
-                                    key={sc.id}
-                                    style={styles.checkboxContainer}
-                                    onPress={() => {
-                                        setLocalSubcats(prev => (
-                                            prev.some(v => v.id === sc.id) ? 
-                                            prev.filter(v => v.id !== sc.id) : [...localSubcats, sc]
-                                    ))}} activeOpacity={0.7}
-                                >
-                                    <Ionicons
-                                        name={checked ? 'checkbox' : 'square-outline'}
-                                        size={24}
-                                        color={checked ? theme.colors.bonasoLightAccent : '#fff'}
-                                    />
-                                    <StyledText type='defaultSemiBold' style={styles.checkboxLabel}>{sc.name}</StyledText>
-                                    {task.indicator.require_numeric && checked && 
-                                        <TextInput style={styles.smallInput} keyboardType="numeric"
-                                            onChangeText={(v) => setLocalSubcats(prev => {
-                                                const others = prev.filter(c => c.id !== sc.id);
-                                                return [...others, { ...sc, numeric_component: v }];
-                                            })} 
-                                            value = {localSubcats.find(s => sc.id == s.id).numeric_component}
-                                            placeholder={'enter any number...'}
-                                        />
-                                    }
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                    <View style={{flexDirection: 'row'}}>
-                    <TouchableOpacity style={styles.button} disabled={localSubcats.length === 0} onPress={() => onSave()}>
-                        <StyledText type='darkSemiBold' style={styles.buttonText}>Confirm</StyledText>
-                    </TouchableOpacity>
-
-                     <TouchableOpacity style={styles.button} onPress={() =>onCancel()}>
-                        <StyledText type='darkSemiBold' style={styles.buttonText}>Cancel</StyledText>
-                    </TouchableOpacity>
-                    </View>
+                        <StyledText style={styles.modalTitle} type='subtitle'>.</StyledText>
+                        {error != '' && <StyledText>{error}</StyledText>}
+                        <View style={styles.container}>
+                            {task.indicator.require_numeric ? 
+                                <MultiCheckboxNum options={task.indicator.subcategories} value={localSubcats} label={'Please select all relevent subcategories'} onChange={(v) => setLocalSubcats(v)}/> : 
+                                <MultiCheckbox options={task.indicator.subcategories} value={localSubcats} label='Please select all relevent subcategories' onChange={(v) => setLocalSubcats(v)} />}
+                        </View>
+                        <View style={{flexDirection: 'row'}}>
+                            <StyledButton onPress={() => onSave()} label={'Confirm & Add'} />
+                            <StyledButton onPress={() =>onCancel()} label={'Cancel & Remove'} />
+                        </View>
                     </View>
                 </Modal>
             </View>
@@ -284,7 +253,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
         }
         //save and submit
         try{
-            console.log('submitting tasks...');
+            console.log('submitting tasks...', data);
             for(const task of selected){
                 const data = {
                     interaction_date: doi.toISOString().split('T')[0], //remove timestamp
@@ -294,7 +263,6 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     numeric_component: number[task.id] || null,
                     subcategory_data: subcats[task.id] || []
                 }
-                console.log('data', data)
                 //save this data locally
                 const saved = await Interaction.save(data);
             }
@@ -336,6 +304,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
         <View>
             <View style={styles.step}>
                 <StyledText type='subtitle'>Step 2: Select a Date/Location</StyledText>
+                <StyledText type='defaultSemiBold'>Date</StyledText>
                 <View style={styles.date}>
                     <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
                         <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
@@ -349,7 +318,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     />
                     )}
                 </View>
-                <StyledText type='darkSemiBold'>Location</StyledText>
+                <StyledText type='defaultSemiBold'>Location</StyledText>
                 <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
             </View>
         
@@ -362,9 +331,9 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                         </StyledText>
                         {subcats[task.id]?.length > 0 && selected.filter(s => s.id === task.id).length > 0 &&
                             subcats[task.id].map((cat) => (
-                                 <View key={cat.id} style={styles.li}>
+                                 <View key={cat.subcategory.id} style={styles.li}>
                                     <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                    <StyledText >{cat.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
+                                    <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
                                 </View>
                             ))
                         }

@@ -9,7 +9,6 @@ export default function RootLayout() {
         const subscription = AppState.addEventListener('change', (state) => {
             if (state === 'active') {
                 // Reopen DB or warm it up
-                console.log('App is active, checking DB...');
                 openDB(); // you can even validate it with a SELECT 1 if needed
             }
         });

@@ -36,7 +36,6 @@ export default function Login(){
     const today = new Date();
     const onSubmit = async (data) => {
         const dn = process.env.EXPO_PUBLIC_API_URL
-        console.log(`${dn}/api/users/test-connection/`)
         setLoading(true);
         const connected = await checkServerConnection(`${dn}/api/users/test-connection/`);
         const username = data.username
@@ -44,7 +43,6 @@ export default function Login(){
         if(connected){
             try{
                 console.log('hacking the mainframe: ', data)
-                console.log(`${dn}/api/users/mobile/request-token/`)
                 const response = await fetch(`${dn}/api/users/mobile/request-token/`, {
                     method: 'POST',
                     headers: {
@@ -90,6 +88,9 @@ export default function Login(){
                     await offlineSignIn(userSessionId);
                     console.log('redirecting')
                     router.replace('/authorized/(tabs)');
+                }
+                else{
+                    setResponse('No credentials found. You must connect to the internet to login.')
                 }
             }
             catch(err){

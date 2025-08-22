@@ -1,3 +1,4 @@
+import StyledButton from '@/components/inputs/StyledButton';
 import AddInteraction from '@/components/record/AddInteraction';
 import Interactions from '@/components/record/Interactions';
 import StyledScroll from "@/components/styledScroll";
@@ -30,9 +31,7 @@ export default function Record() {
             (async () => {
                 //if no connection, try to find the instance from the local dv
                 if(!isServerReachable){
-                    console.log('id', redirected)
                     const found = await Respondent.find(redirected, 'local_id');
-                    console.log('found', found)
                     setActiveRespondent(found);
                     setRespondentUUID(found.local_id);
                     setDisplayName(found.is_anonymous ? `Anonymous Respondent ${found.local_id}` : `${found.first_name} ${found.last_name}`)
@@ -180,6 +179,10 @@ export default function Record() {
                             ))}
                             </ScrollView>
                         )}
+                        {respondents.length == 0 && isSearching && <View style={styles.searchBox}>
+                            <StyledText type="darkSemiBold" style={styles.searchEntry}>No respondents match this search.</StyledText>
+                        </View>}
+
                         </View>
                     </View>
 
@@ -187,19 +190,19 @@ export default function Record() {
                         <View>
                         <StyledText type='subtitle'>You're viewing {displayName}</StyledText>
                         <StyledText>{activeRespondent.village}, {activeRespondent.district}</StyledText>
-                        <TouchableOpacity style={styles.button} onPress={() => setActiveRespondent(null)}>
-                            <StyledText style={styles.buttonText} type="defaultSemiBold">
-                                Clear Respondent
-                            </StyledText>
-                        </TouchableOpacity>
+                        <StyledButton onPress={() => setActiveRespondent(null)} label='Clear' />
+                        <StyledButton onPress={() => router.push(isServerReachable ? { 
+                                pathname: '/authorized/create/CreateRespondent', 
+                                params: { server_id: activeRespondent.id } 
+                            } : { 
+                                pathname: '/authorized/create/CreateRespondent', 
+                                params: { local_id: activeRespondent.local_id } 
+                            })} label='Edit Respondent'
+                        />
                         </View>
                     )}
 
-                    {!activeRespondent && <TouchableOpacity style={styles.button} onPress={() => goToCreate()}>
-                        <StyledText style={styles.buttonText} type="defaultSemiBold">
-                            CREATE NEW RESPONDENT
-                        </StyledText>
-                    </TouchableOpacity>}
+                    {!activeRespondent && <StyledButton onPress={() => goToCreate()} label='Create New Respondent' />}
 
                 </View>
 

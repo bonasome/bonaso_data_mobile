@@ -12,7 +12,6 @@ export default async function offlineLogin(username, password){
 
             if (now - createdOn > THIRTY_DAYS_MS) {
                 console.warn('Offline credentials expired. You must connect to the internet to log in.')
-                alert('Offline login expired. You must connect to login.')
                 return false
             }
             if(username === cred.username){
@@ -40,7 +39,6 @@ export default async function offlineLogin(username, password){
     }
     else{
         alert('Offline login is not available. You must connect to login.')
-        console.warn('Offline login not available. You must connect to the internet to access your account.')
         return false
     }
 }

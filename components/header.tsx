@@ -22,7 +22,6 @@ export default function Header() {
 
     const sync = async () => {
         const connected = await checkServerConnection();
-        console.log(connected)
         if (connected) {
             try {
                 await Respondent.upload();

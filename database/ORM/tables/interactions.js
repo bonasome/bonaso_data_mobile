@@ -12,7 +12,7 @@ export class InteractionSubcategory extends BaseModel {
         subcategory: {type: 'integer', relationship: {table: 'indicator_subcategories', column: 'server_id'}},
     }
     static relationships = [
-        {model: IndicatorSubcategory, field: 'subcategory', name: 'indicator_subcategories', relCol: 'id', thisCol: 'subcategory', onDelete: 'protect', fetch: true, many: false}, 
+        {model: IndicatorSubcategory, field: 'subcategory', name: 'indicator_subcategories', relCol: 'id', thisCol: 'subcategory', onDelete: 'nothing', fetch: true, many: false}, 
     ]
 }
 
@@ -37,11 +37,16 @@ export class Interaction extends BaseModel {
 
         // Save main record first
         const savedId = await super.save(mainData, id, col);
-
-        // Save related subcategories
-        for (const subcat of subcategory_data) {
-            await InteractionSubcategory.save({ subcategory: subcat.id, numeric_component: subcat.numeric_component, interaction: savedId });
+        
+        //to avoid wierd duplictes, play it safe and delete any exisitng subcategory data
+        if(subcategory_data.length > 0){
+            await InteractionSubcategory.delete(savedId, 'interaction');
+            // Save related subcategories
+            for (const subcat of subcategory_data) {
+                await InteractionSubcategory.save({ subcategory: subcat.subcategory.id, numeric_component: subcat.numeric_component, interaction: savedId });
+            }
         }
+        
         return savedId; // Return id so caller can fetch full object if needed
     }
 
@@ -59,7 +64,7 @@ export class Interaction extends BaseModel {
             ? ir.subcategory_data.map(cat => ({
                 id: null,
                 subcategory: { id: cat.subcategory.id, name: cat.subcategory.name },
-                numeric_component: cat.numeric_component,
+                numeric_component: (cat.numeric_component == '' ? null : cat.numeric_component),
             }))
             : [];
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
@@ -69,11 +74,12 @@ export class Interaction extends BaseModel {
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
             }
+            if(ir.numeric_component == '') ir.numeric_component = null
             toSync.push({
                 local_id: ir.id,
                 respondent: server_id,
                 interaction_date: ir.interaction_date,
-                interaction_location: (ir.interaction_location == '' ? 'There':  ir.interaction_location),
+                interaction_location: ir.interaction_location,
                 task_id: ir.task.id,
                 numeric_component: ir.numeric_component,
                 subcategories_data: subcategory_data,

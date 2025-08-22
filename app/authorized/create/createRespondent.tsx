@@ -5,23 +5,25 @@ import { useConnection } from '@/context/ConnectionContext';
 import getMeta from '@/database/ORM/getMeta';
 import { Respondent, RespondentLink } from '@/database/ORM/tables/respondents';
 import checkDate from '@/services/checkDate';
+import fetchWithAuth from '@/services/fetchWithAuth';
 import theme from '@/themes/themes';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import countries from 'world-countries';
-
 export default function CreateRespondent() {
     //navigator the help with directions to/from
     const navigation = useNavigation();
     const { local_id } = useLocalSearchParams();
+    const { server_id } = useLocalSearchParams();
     //connection state
     const { isServerReachable } = useConnection();
     const [existing, setExisting] = useState(null);
     //meta containing options/labels for certain fields
     const [meta, setMeta] = useState(null); 
 
+    //slightly confusing, but a user can either load a profile from the device or from the server
      useEffect(() => {
         if (local_id) {
             (async () => {
@@ -30,7 +32,24 @@ export default function CreateRespondent() {
                 setExisting(serialized);
             })();
         }
-    }, [local_id])
+        if (server_id) {
+            (async () => {
+                try {
+                    const response = await fetchWithAuth(`/api/record/respondents/${server_id}/`);
+                    const data = await response.json();
+                    if (response.ok) {
+                        setExisting(data);
+                    } 
+                    else {
+                        console.error('API error', response.status);
+                    }
+                } 
+                catch (err) {
+                    console.error('Error fetching respondent', err);
+                }
+            })();
+        }
+    }, [local_id, server_id])
 
     //load the meta (from local storage)
     useEffect(() => {
@@ -55,6 +74,18 @@ export default function CreateRespondent() {
         };
     }, []);
 
+    const pregnancyInfo = useMemo(() => {
+        if(!server_id || !existing) return null;
+        if(!existing?.pregnancies || existing?.pregnancies?.length == 0) return null
+        let most_recent = existing?.pregnancies?.reduce((latest, current) => {
+            return new Date(current.date1) > new Date(latest.date1) ? current : latest;
+        });
+        if(most_recent.term_began) most_recent.term_began = new Date(most_recent.term_began);
+        if(most_recent.term_ended) most_recent.term_ended = new Date(most_recent.term_ended);
+        return most_recent
+    }, [existing]);
+
+
     //set the default values
     const defaultValues = useMemo(() => {
         return {
@@ -77,12 +108,12 @@ export default function CreateRespondent() {
             kp_status: existing?.kp_status?.map((kp) => (kp.name)) ?? [],
             disability_status: existing?.disability_status?.map((d) => (d.name)) ?? [],
             
-            hiv_positive: existing?.hiv_positive ?? false,
-            date_positive: existing?.date_positive ?? null,
+            hiv_positive: server_id ? existing?.hiv_status?.hiv_positive : existing?.hiv_positive ?? false,
+            date_positive: server_id ?  existing?.hiv_status?.date_positive  : existing?.date_positive ?? null,
             
-            is_pregnant: existing?.is_pregnant ?? false,
-            term_began: existing?.term_began ?? null,
-            term_ended: existing?.term_ended ?? null,
+            is_pregnant: server_id ? existing?.pregnancies?.length > 0 : existing?.is_pregnant ?? false,
+            term_began: server_id ? pregnancyInfo?.term_began : existing?.term_began ?? null,
+            term_ended: server_id ? pregnancyInfo?.term_ended : existing?.term_ended ?? null,
 
             email: existing?.email ?? '',
             phone_number: existing?.phone_number ?? '',
@@ -129,30 +160,57 @@ export default function CreateRespondent() {
             return;
         }
         data.term_ended = checkDate(data.term_ended); //this is nominally optional
-
-        console.log('here')
         //try saving/uploading the data
+        let result = null
         try{
             console.log('submitting data...');
-            let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
-            //if connected, try to upload the data
-            if (isServerReachable) {
-                try {
-                    //upload the respondent
-                    const uploaded = await Respondent.upload();
-                    //get the server ID by pulling its link (which should auto add when uploaded)
-                    const link = await RespondentLink.find(result, 'uuid');
-                    //automatically redirect the user to the record page with this respondent loaded by passing the server id
-                    router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: link.server_id } });
-                    return uploaded
-                } 
-                catch (err) {
-                    alert('Respondent saved, but the upload failed. Will try again next time connection is found.');
-                    console.error('Upload failed', err);
+            //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage
+            if(server_id && isServerReachable){
+                data.kp_status_names = data.kp_status;
+                data.disability_status = data.disability_status_names;
+                data.hiv_status_data = {hiv_positive: data.hiv_positive, date_positive: data.date_positive};
+                data.pregnancy_data = [{term_began: data.term_began, term_ended: data.term_ended, id: pregnancyInfo?.id ?? null}];
+                
+                try{
+                    console.log('uploading respondent', data);
+                    const response = await fetchWithAuth(`/api/record/respondents/${server_id}/`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                    });
+                    const returnData = await response.json();
+                    if(!response.ok){
+                        console.error(returnData);
+                    }
+                }
+                catch(err){
+                    console.error(err);
                 }
             }
+            else if(server_id && !isServerReachable){
+                alert('You are currently offline. Please reconnect to make edits.');
+            }
             else{
-                alert('Respondent saved. Will sync next time connection is found.')
+                let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
+                //if connected, try to upload the data
+                if (isServerReachable) {
+                    try {
+                        //upload the respondent
+                        const uploaded = await Respondent.upload();
+                        //get the server ID by pulling its link (which should auto add when uploaded)
+                        const link = await RespondentLink.find(result, 'uuid');
+                        //automatically redirect the user to the record page with this respondent loaded by passing the server id
+                        router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: link.server_id } });
+                        return uploaded
+                    } 
+                    catch (err) {
+                        alert('Respondent saved, but the upload failed. Will try again next time connection is found.');
+                        console.error('Upload failed', err);
+                    }
+                }
+                else{
+                    alert('Respondent saved. Will sync next time connection is found.')
+                }
             }
             //if not connected/uploaded, redirect using the local id
             router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: result } });

@@ -2,14 +2,17 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
-import StyledText from "../styledText";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import StyledButton from "../inputs/StyledButton";
+import StyledText from '../styledText';
 
-export default function Interactions({ activeRespondent }) {
+export default function Interactions({ activeRespondent, fromLocal=false }) {
+    const router = useRouter();
     const { isServerReachable } = useConnection();
     const [interactions, setInteractions] = useState([]);
-
+    const [expanded, setExpanded] = useState(false);
     useEffect(() => {
         if(isServerReachable){
             const getInteractions = async() => {
@@ -35,11 +38,23 @@ export default function Interactions({ activeRespondent }) {
             getLocal();
         }
     }, [activeRespondent]);
-    console.log(interactions)
+    
+    function goToEditIr(id){
+        router.push(fromLocal ? { 
+            pathname: '/authorized/create/EditInteraction', 
+            params: { local_id: id } 
+        } : { 
+            pathname: '/authorized/create/EditInteraction', 
+            params: { server_id: id } 
+        } );
+    }
+
     return (
         <View style={styles.lastStep}>
-            <StyledText type="subtitle">Previous Interactions</StyledText>
-            {interactions.length > 0 ? (
+            <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+                <StyledText type="subtitle">Previous Interactions</StyledText>
+            </TouchableOpacity>
+            {expanded && <View>{interactions.length > 0 ? (
                 interactions.map((ir) => (<View key={ir.id} style={styles.interactionCard}>
                     <StyledText type="subtitle">{isServerReachable ? ir.task?.display_name : `${ir.task?.indicator?.code} : ${ir.task?.indicator?.name} (${ir.task?.organization?.name}, ${ir.task?.project?.name})`}</StyledText>
                     <StyledText type="default">{new Date(ir.interaction_date).toLocaleDateString()}</StyledText>
@@ -47,10 +62,12 @@ export default function Interactions({ activeRespondent }) {
                     {ir?.subcategory_data?.length > 0 && ir.subcategory_data.map((cat) => (
                         <View key={cat.id ?? cat.subcategory} style={styles.li}>
                             <StyledText style={styles.bullet}>{'\u2022'}</StyledText>
-                            <StyledText>{cat?.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
+                            <StyledText>{cat?.subcategory?.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
                         </View>))}
+                    <StyledButton onPress={() => goToEditIr(ir.id)} label={'Edit Interaction'} />
                 </View>))
             ) : (<StyledText>This respondent does not have any interactions on record.</StyledText>)}
+            </View>}
         </View>
     );
 }

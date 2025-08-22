@@ -5,6 +5,7 @@ import Checkbox from '../inputs/Checkbox';
 import DatePicker from '../inputs/DatePicker';
 import Input from '../inputs/Input';
 import MultiCheckbox from '../inputs/MultiCheckbox';
+import MultiCheckboxNum from '../inputs/MultiCheckboxNum';
 import RadioButtons from '../inputs/RadioButtons';
 import SimplePicker from '../inputs/SimplePicker';
 import StyledText from '../styledText';
@@ -44,6 +45,8 @@ export default function Field({ field, control }) {
                     return <Checkbox  {...commonProps} />;
                 case 'multiselect': //multiselect from checkbox
                     return <MultiCheckbox {...commonProps} options={options} />
+                case 'multinumber': //multiselect from checkbox
+                    return <MultiCheckboxNum {...commonProps} options={options} />
                     
                 default:
                     return <StyledText>Unsupported field type: {type}</StyledText>;

@@ -15,6 +15,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 
 function Me() {
+    const { isServerReachable} = useConnection();
     const [me, setMe] = useState(null);
 
     useEffect(() => {
@@ -35,7 +36,9 @@ function Me() {
                 console.error('Auth error, user should login again', err);
             }
         }
-        fetchMe();
+        if(isServerReachable){
+            fetchMe();
+        }
     }, []);
 
     return(

@@ -1,4 +1,3 @@
-import { AuthService } from '@/services/authService';
 import * as SecureStore from 'expo-secure-store';
 
 async function refreshAccessToken() {
@@ -13,7 +12,8 @@ async function refreshAccessToken() {
     const data = await response.json();
     console.log(data);
     if (!response.ok) {
-        AuthService.signOut();
+        console.log('response not ok, signing out...')
+        //AuthService.signOut();
         throw new Error('No refresh token available');
     }
     await SecureStore.setItemAsync('accessToken', data.access);
@@ -50,7 +50,8 @@ export default async function fetchWithAuth(url, options = {}, retry = true) {
         });
         } 
         catch (err) {
-            AuthService.signOut();
+            console.error('error fetching response, signing out...')
+            //AuthService.signOut();
             throw new Error('No refresh token available', err);
         }
     }
