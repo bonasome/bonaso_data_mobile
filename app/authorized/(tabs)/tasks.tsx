@@ -62,7 +62,6 @@ export default function Tasks() {
             setTasks(serialized);
         };
         loadTasks();
-
     }, [isServerReachable]);
 
     return (

@@ -11,6 +11,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+
 export default function EditInteraction(){
     //navigator the help with directions to/from
     const navigation = useNavigation();

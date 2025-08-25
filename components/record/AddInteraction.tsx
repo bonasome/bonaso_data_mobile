@@ -1,7 +1,9 @@
 import StyledText from "@/components/styledText";
 import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
+import { Task } from "@/database/ORM/tables/tasks";
 import fetchWithAuth from '@/services/fetchWithAuth';
+import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
@@ -10,13 +12,13 @@ import MultiCheckbox from "../inputs/MultiCheckbox";
 import MultiCheckboxNum from "../inputs/MultiCheckboxNum";
 import StyledButton from "../inputs/StyledButton";
 
-export default function AddInteraction({ respondent, tasks, uuid }){
+
+export default function AddInteraction({ localId, serverId=null }){
     /*PARAMS: 
-        - respondent: the respondent attached to this set of interactions
-        - tasks: a list of tasks pulled from local storage
-        - uuid: the local uuid for the respondent (either found via the respondent local_id if offline or the respondent_link if online)
+        - localId, the local uuid stored on device in the RespondentLink model, required
+        -serverId, optional id that links to the server for certain serverside checks
     */
-    //context to check connection
+    //context to Fcheck connection
     const { isServerReachable } = useConnection();
     //vars to track high level information about all interactions
     const [doi, setDoi] = useState(new Date());
@@ -33,7 +35,21 @@ export default function AddInteraction({ respondent, tasks, uuid }){
     const [modalTask, setModalTask] = useState(null); //the task currently employing the modal
     //show date picker for DOI
     const [showDate, setShowDate] = useState(false);
-    
+    const [tasks, setTasks] = useState([]);
+
+    useEffect(() => {
+        const loadTasks = async () => {
+            if (isServerReachable){
+                await syncTasks();
+            }   
+            const myTasks = await Task.all();
+            let serialized = await Promise.all(myTasks.map(t => t.serialize()));
+            console.log(serialized)
+            setTasks(serialized);
+        };
+        loadTasks();
+    }, [isServerReachable]);
+
     //modal to enter a number
     function EnterNumber({ task }){
         //helper local var to make state management easier. Gets transfered to the main number state on submission
@@ -44,7 +60,6 @@ export default function AddInteraction({ respondent, tasks, uuid }){
             setNumber(prev => ({ ...prev, [task.id]: '' }));
             setShowNumber(false);
         }
-
         return(
             <View>
                 <Modal transparent={true}
@@ -53,11 +68,9 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 onRequestClose={() => setShowNumber(false)}>
                     <View style={styles.modalContent}>
                         <StyledText type='subtitle'>Please enter a number.</StyledText>
-
                         <TextInput style={styles.input} keyboardType="numeric" value={localNumber}
                             onChangeText={(text) => setLocalNumber(text)} placeholder={'enter any number...'}
                         />
-
                         <View style={{flexDirection: 'row'}}>
                             <TouchableOpacity style={styles.button} disabled={localNumber === ''} onPress={() =>{
                                 setSelected(prev => [...prev, task]);
@@ -76,6 +89,7 @@ export default function AddInteraction({ respondent, tasks, uuid }){
             </View>
         )
     }
+
     //modal for selecting subcategories
     function SelectSubcats({ task }){
         //helper local var to track local states. Gets transferred to main subcats state on submission
@@ -89,7 +103,6 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 setLocalSubcats(subcats[task.id] || []);
             }
         }, [showSubcats]);
-        
         //on cancel set the subcats as an empty array and remove this from selected
         const onCancel = () => {
             setSubcats(prev => ({ ...prev, [task.id]: [] }));
@@ -107,11 +120,9 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     return;
                 }
             }
-            
             setSubcats(prev => ({ ...prev, [task.id]: localSubcats })); 
             setSelected(prev => [...prev, task]);
             setShowSubcats(false);
-
             //update tasks that may use this as a prerequisite
             const downstreamTasks = selected.filter(t => String(t?.indicator?.prerequisite) === String(task?.indicator?.id));
             downstreamTasks.forEach(ct => {
@@ -141,8 +152,8 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                         {error != '' && <StyledText>{error}</StyledText>}
                         <View style={styles.container}>
                             {task.indicator.require_numeric ? 
-                                <MultiCheckboxNum options={task.indicator.subcategories} value={localSubcats} label={'Please select all relevent subcategories'} onChange={(v) => setLocalSubcats(v)}/> : 
-                                <MultiCheckbox options={task.indicator.subcategories} value={localSubcats} label='Please select all relevent subcategories' onChange={(v) => setLocalSubcats(v)} />}
+                                <MultiCheckboxNum options={taskSubcats} value={localSubcats} label={'Please select all relevent subcategories'} onChange={(v) => setLocalSubcats(v)}/> : 
+                                <MultiCheckbox options={taskSubcats} value={localSubcats} label='Please select all relevent subcategories' onChange={(v) => setLocalSubcats(v)} />}
                         </View>
                         <View style={{flexDirection: 'row'}}>
                             <StyledButton onPress={() => onSave()} label={'Confirm & Add'} />
@@ -181,8 +192,8 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                     }  
                 } 
                 if (!isValid){
-                    if(isServerReachable){
-                        const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${prereq.id}&before=${doi}`);
+                    if(isServerReachable && serverId){
+                        const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}&task_indicator=${prereq.id}&before=${doi}`);
                         const data = await response.json()
                         if(data.results.length > 0){
                             const validPastInt = data.results.find(inter => inter?.task_detail?.indicator?.id === prereq);
@@ -202,9 +213,9 @@ export default function AddInteraction({ respondent, tasks, uuid }){
                 }
             }
             //if this interaction is not flagged with allow repeat and the server is available, send a warning if repeats (within 30 days) are found
-            if(isServerReachable && !task.indicator.allow_repeat){
+            if(isServerReachable && serverId && !task.indicator.allow_repeat){
                 try{
-                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${respondent.id}&task_indicator=${task.id}`);
+                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}&task_indicator=${task.id}`);
                     const data = await response.json()
                     const pastInt = data.results.filter(inter => inter?.task?.indicator?.id === task.indicator.id);
                     const now = new Date();
@@ -253,12 +264,12 @@ export default function AddInteraction({ respondent, tasks, uuid }){
         }
         //save and submit
         try{
-            console.log('submitting tasks...', data);
+            console.log('submitting tasks...', localId);
             for(const task of selected){
                 const data = {
                     interaction_date: doi.toISOString().split('T')[0], //remove timestamp
                     interaction_location: location,
-                    respondent_uuid: uuid,
+                    respondent_uuid: localId,
                     task: task.id,
                     numeric_component: number[task.id] || null,
                     subcategory_data: subcats[task.id] || []

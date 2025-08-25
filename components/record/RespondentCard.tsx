@@ -1,26 +1,26 @@
 import StyledButton from "@/components/inputs/StyledButton";
-import Interactions from "@/components/record/Interactions";
-import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
-import { Interaction } from "@/database/ORM/tables/interactions";
 import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/tables/meta";
-import { Respondent } from "@/database/ORM/tables/respondents";
 import theme from "@/themes/themes";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
-function RespondentCard({ respondent }){
+export default function RespondentCard({ respondent, fromServer=true }){
+    //card that displays information about a respondent
     const router = useRouter();
     const [expanded, setExpanded] = useState(false);
     const [labels, setLabels] = useState(null);
-    const display = respondent.is_anonymous ? `Anonymous Respondent ${respondent.local_id}` : `${respondent.first_name} ${respondent.last_name}`;
+    const display = fromServer ? respondent.display_name : 
+        respondent.is_anonymous ? `Anonymous Respondent ${respondent.local_id}` : `${respondent.first_name} ${respondent.last_name}`;
+    
     function goToEditResp(id){
         router.push({ 
             pathname: '/authorized/create/CreateRespondent', 
             params: { local_id: id } 
         });
     }
+
     useEffect(() => {
         const getLabels = async() => {
             const ar = await AgeRange.getLabel(respondent.age_range);
@@ -72,40 +72,8 @@ function RespondentCard({ respondent }){
                 {respondent.is_pregnant && (respondent.term_ended ?  <StyledText>Pregnant from {respondent.term_began} to {respondent.term_ended}</StyledText> :
                     <StyledText>Pregnant since {respondent.term_began}</StyledText>)}
                 <StyledButton key={respondent.local_id} onPress={() => goToEditResp(respondent.local_id)} label={'Edit Details'} />
-                <Interactions activeRespondent={respondent} fromLocal={true} />
             </View>}
         </View>
-    )
-}
-
-
-export default function Unsynced(){
-    const router = useRouter();
-    const [respondents, setRespondents] = useState([]);
-    const [interactions, setInteractions] = useState([]);
-    
-    useEffect(() => {
-        const loadData = async() => {
-            const rInstances = await Respondent.all()
-            const rSerialized = await Promise.all(rInstances.map(r => r.serialize()));
-            setRespondents(rSerialized);
-
-            const iInstances = await Interaction.all()
-            const iSerialized = await Promise.all(iInstances.map(i => i.serialize()));
-            setInteractions(iSerialized);
-        }
-        loadData();
-    }, []);
-
-    return(
-        <StyledScroll>
-            <View>
-                <StyledText type="subtitle">Respondents</StyledText>
-                {respondents.map(r => (
-                    <RespondentCard key={r.local_id} respondent={r} />
-                ))}
-            </View>
-        </StyledScroll>
     )
 }
 
@@ -119,17 +87,17 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     ul: {
-    paddingLeft: 20, // indent like <ul>
-  },
-  li: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  bullet: {
-    fontSize: 18,
-    lineHeight: 22,
-    marginRight: 6,
-  },
+        paddingLeft: 20, // indent like <ul>
+    },
+    li: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 4,
+    },
+    bullet: {
+        fontSize: 18,
+        lineHeight: 22,
+        marginRight: 6,
+    },
 
 });

@@ -21,9 +21,9 @@ export default function TabLayout() {
                 ),
             }}
         />
-        <Tabs.Screen name="Record"  
+        <Tabs.Screen name="respondents"  
             options={{
-                title: 'Record',
+                title: 'Respondents',
                 tabBarIcon: ({ color, focused }) => (
                     <Ionicons name={focused ? 'people-circle' : 'people-circle-outline'} color={color} size={24} />
                 ),

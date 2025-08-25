@@ -9,6 +9,7 @@ type AuthContextType = {
     isLoading: boolean;
     accessToken: string | null;
     refreshToken: string | null;
+    offlineMode: boolean;
     signIn: (data: JSON) => Promise<void>;
     signOut: () => Promise<void>;
     offlineSignIn: (token:string) => Promise<void>;
@@ -19,8 +20,8 @@ const AuthContext= createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }) =>{
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [refreshToken, setRefreshToken] = useState<string | null>(null);
-    const[isLoading, setIsLoading] = useState(true);
-    const [authenticated, setAuthenticated] = useState(false)
+    const [isLoading, setIsLoading] = useState(true);
+    const [offlineMode, setOfflineMode] = useState(false);
 
     useEffect(() => {
         const loadToken = async () => {
@@ -28,7 +29,6 @@ export const AuthProvider = ({ children }) =>{
             const refresh = await SecureStore.getItemAsync('refreshToken');
             setAccessToken(access);
             setRefreshToken(refresh)
-            setAuthenticated(!!access || !!refresh);
             setIsLoading(false);
         };
         loadToken();
@@ -40,27 +40,27 @@ export const AuthProvider = ({ children }) =>{
 
 
     const signIn = async (data:any) => {
-        await saveSecureItem('accessToken', data.access)
-        await saveSecureItem('refreshToken', data.refresh)
-        await saveSecureItem('user_id', String(data.user_id))
+        await saveSecureItem('accessToken', data.access);
+        await saveSecureItem('refreshToken', data.refresh);
+        await saveSecureItem('user_id', String(data.user_id));
         setAccessToken(data.access);
         setRefreshToken(data.refresh);
-        setAuthenticated(true);
+        setOfflineMode(false);
         console.log('Signed In');
     }
     const offlineSignIn = async (token:string) => {
-        await saveSecureItem('userToken', token)
-        setAccessToken(token)
-        setAuthenticated(true);
+        await saveSecureItem('userToken', token);
+        setAccessToken(token);
+        setOfflineMode(true);
         console.log('Signed In');
     }
     const signOut = async() => {
         await deleteSecureItem('accessToken');
         await deleteSecureItem('refreshToken');
         await deleteSecureItem('user_id');
-        setAuthenticated(false);
         setAccessToken(null);
         setRefreshToken(null);
+        setOfflineMode(false);
         console.log('Signed Out');
         router.replace('/login');
     }
@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }) =>{
             isLoading,
             accessToken,
             refreshToken,
+            offlineMode,
             signIn,
             offlineSignIn,
             signOut,

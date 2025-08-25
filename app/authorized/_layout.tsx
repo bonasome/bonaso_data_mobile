@@ -19,7 +19,7 @@ export default function RootLayout() {
     return (
         <Stack screenOptions={{header: () => (<Header />)}}>
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="create/CreateRespondent" />
+            <Stack.Screen name="respondentForms" />
         </Stack>
     );
 }
