@@ -8,18 +8,17 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import StyledButton from "../inputs/StyledButton";
 import StyledText from '../styledText';
 
-export default function Interactions({ activeRespondent, fromLocal=false }) {
+export default function Interactions({ localId, serverId=null, updateTrigger=null }) {
     const router = useRouter();
     const { isServerReachable } = useConnection();
     const [interactions, setInteractions] = useState([]);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     useEffect(() => {
-        if(isServerReachable){
+        if(isServerReachable && serverId){
             const getInteractions = async() => {
-                if(!activeRespondent) return;
                 try {
                     console.log('fetching interactions...');
-                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${activeRespondent.id}`);
+                    const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}`);
                     const data = await response.json();
                     setInteractions(data.results)
                 } 
@@ -29,23 +28,21 @@ export default function Interactions({ activeRespondent, fromLocal=false }) {
             }
             getInteractions();
         }
-        else{
-            const getLocal = async () => {
-                const localIr = await Interaction.filter({ respondent_uuid: activeRespondent.local_id });
-                let serialized = await Promise.all(localIr.map(ir => ir.serialize()));
-                setInteractions(serialized);
-            }
-            getLocal();
+        const getLocal = async () => {
+            const localIr = await Interaction.filter({ respondent_uuid: localId });
+            let serialized = await Promise.all(localIr.map(ir => ir.serialize()));
+            setInteractions(serialized);
         }
-    }, [activeRespondent]);
+        getLocal();
+    }, [localId, serverId, updateTrigger]);
     
     function goToEditIr(id){
-        router.push(fromLocal ? { 
-            pathname: '/authorized/create/EditInteraction', 
-            params: { local_id: id } 
+        router.push(serverId ? { 
+            pathname: '/authorized/(tabs)/respondents/forms/interactionForm', 
+            params: { serverId: id } 
         } : { 
-            pathname: '/authorized/create/EditInteraction', 
-            params: { server_id: id } 
+            pathname: '/authorized/(tabs)/respondents/forms/interactionForm', 
+            params: { localId: id } 
         } );
     }
 

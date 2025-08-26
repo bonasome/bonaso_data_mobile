@@ -1,4 +1,4 @@
-import AddInteraction from '@/components/record/AddInteraction';
+import AddInteraction from '@/components/respondents/addInteraction';
 import { useConnection } from '@/context/ConnectionContext';
 import saveInteraction from '@/database/store/saveInteraction';
 import uploadInteraction from '@/database/upload/uploadInteraction';

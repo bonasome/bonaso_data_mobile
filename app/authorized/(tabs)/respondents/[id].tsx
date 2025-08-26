@@ -1,5 +1,6 @@
 import StyledButton from "@/components/inputs/StyledButton";
-import AddInteraction from "@/components/record/AddInteraction";
+import AddInteraction from "@/components/respondents/addInteraction";
+import Interactions from "@/components/respondents/interactions";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/tables/meta";
@@ -20,6 +21,7 @@ export default function RespondentDetail(){
     const [localId, setLocalId] = useState(null);
     const [serverId, setServerId] = useState(null);
     
+    const [refreshKey, setRefreshKey] = useState(new Date());
 
     useEffect(() => {
         const getLocalId = async () => {
@@ -44,7 +46,7 @@ export default function RespondentDetail(){
     //redirect to create page
     function goToEdit(){
         router.push({
-            pathname: 'authorized/respondentForms/respondentForm',
+            pathname: 'authorized/(tabs)/respondents/forms/respondentForm',
             params: serverId ? { serverId: serverId } : {localId: localId}
         })
     }
@@ -144,7 +146,10 @@ export default function RespondentDetail(){
                 <StyledButton onPress={goToEdit} label={'Edit Details'} />
             </View>
             <View>
-                <AddInteraction localId={localId} serverId={serverId} />
+                <AddInteraction localId={localId} serverId={serverId} onSubmit={() => setRefreshKey(new Date())} />
+            </View>
+            <View>
+                <Interactions localId={localId} serverId={serverId} updateTrigger={refreshKey} />
             </View>
         </StyledScroll>
     )

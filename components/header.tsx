@@ -6,7 +6,6 @@ import checkServerConnection from "@/services/checkServerConnection";
 import syncMeta from "@/services/syncMeta";
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
-import AntDesign from '@expo/vector-icons/AntDesign';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -16,7 +15,7 @@ import IconInteract from "./inputs/IconInteract";
 import StyledText from "./styledText";
 
 export default function Header() {
-    const { signOut } = useAuth();
+    const { signOut, offlineMode } = useAuth();
     const { isServerReachable, setIsServerReachable } = useConnection();
     const [user, setUser] = useState(null);
 
@@ -46,8 +45,7 @@ export default function Header() {
             />
             <StyledText style={styles.headerText} type="defaultSemiBold">BONASO Data Portal</StyledText>
             <View style={styles.actions}>
-                <IconInteract onPress={() => signOut()} icon={<AntDesign name="exclamationcircle" size={24} color="#fff" />} />
-                <IconInteract onPress={() => sync()} icon={<FontAwesome5 name="sync" size={20} color="#fff" />} />
+                {isServerReachable && !offlineMode && <IconInteract onPress={() => sync()} icon={<FontAwesome5 name="sync" size={20} color="#fff" />} />}
                 <IconInteract onPress={() => signOut()} icon={<MaterialCommunityIcons name="logout" size={24} color="#fff" />} />
                 
             </View>

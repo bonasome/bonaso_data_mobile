@@ -13,7 +13,7 @@ import MultiCheckboxNum from "../inputs/MultiCheckboxNum";
 import StyledButton from "../inputs/StyledButton";
 
 
-export default function AddInteraction({ localId, serverId=null }){
+export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     /*PARAMS: 
         - localId, the local uuid stored on device in the RespondentLink model, required
         -serverId, optional id that links to the server for certain serverside checks
@@ -281,12 +281,14 @@ export default function AddInteraction({ localId, serverId=null }){
                 //if server is available, try to upload it immediately
                 const uploaded = await Interaction.upload()
                 if(uploaded){
-                    alert('Uploaded succesfuly!')
+                    alert('Uploaded succesfuly!');
+                    onSubmit();
                 }
             }
             else{
                 //else alert user that it is saved locally
-                alert('Interactions saved! They will be uploaded next time connection is found.')
+                alert('Interactions saved! They will be uploaded next time connection is found.');
+                onSubmit();
             }
         }
         catch(err){

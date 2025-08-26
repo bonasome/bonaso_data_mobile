@@ -5,21 +5,10 @@ export type ThemedTextProps = TextProps & {
     type?: "default" | "title" | "defaultSemiBold" | "subtitle" | "link" | "darkSemiBold";
 };
 
-export default function StyledText({
-    children,
-    type = "default",
-    style,
-    ...props
-    }: ThemedTextProps) {
+export default function StyledText({children, type = "default", style, ...props}: ThemedTextProps) {
     return (
-        <Text
-        style={[
-            styles[type], // cleaner switch
-            style as TextStyle,
-        ]}
-        {...props}
-        >
-        {children}
+        <Text style={[styles[type], style as TextStyle,]}{...props}>
+            {children}
         </Text>
     );
 }

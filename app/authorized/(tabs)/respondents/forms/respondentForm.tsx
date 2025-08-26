@@ -22,36 +22,27 @@ export default function CreateRespondent() {
     const [existing, setExisting] = useState(null);
     //meta containing options/labels for certain fields
     const [meta, setMeta] = useState(null); 
+    const [redirectId, setRedirectId] = useState('');
 
-    function goToIndex(){
-        router.push({
-            pathname: 'authorized/(tabs)/Respondents',
-            params: serverId ? { serverId: serverId } : {localId: localId}
-        })
-    }
-
-    function goToDetail(){
-        const param = serverId ? serverId : localId
-        router.push({pathname: `authorized/(tabs)/respondents/${param}`});
-    }
 
     //slightly confusing, but a user can either load a profile from the device or from the server
      useEffect(() => {
         if (localId) {
             (async () => {
-                const found = await Respondent.find(localId, 'localId');
+                const found = await Respondent.find(localId, 'local_id');
                 const serialized = await found?.serialize();
                 setExisting(serialized);
+                setRedirectId(`-${localId}`);
             })();
         }
-
-        if (serverId) {
+        if (serverId && isServerReachable) {
             (async () => {
                 try {
                     const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
                     const data = await response.json();
                     if (response.ok) {
                         setExisting(data);
+                        setRedirectId(`${data.id}`);
                     } 
                     else {
                         console.error('API error', response.status);
@@ -192,7 +183,10 @@ export default function CreateRespondent() {
                         body: JSON.stringify(data),
                     });
                     const returnData = await response.json();
-                    if(!response.ok){
+                    if(response.ok){
+                        router.push(`/authorized/(tabs)/respondents/${returnData.id}`) //redirect to the previous page with the id from the server
+                    }
+                    else{
                         console.error(returnData);
                     }
                 }
@@ -204,7 +198,8 @@ export default function CreateRespondent() {
                 alert('You are currently offline. Please reconnect to make edits.');
             }
             else{
-                let result = existing ? await Respondent.save(data, existing.localId, 'localId') : await Respondent.save(data); //save locally first
+                //if it exists i.e., a local ID param was passed, save over the old result, else create a new record
+                let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
                 //if connected, try to upload the data
                 if (isServerReachable) {
                     try {
@@ -213,7 +208,7 @@ export default function CreateRespondent() {
                         //get the server ID by pulling its link (which should auto add when uploaded)
                         const link = await RespondentLink.find(result, 'uuid');
                         //automatically redirect the user to the record page with this respondent loaded by passing the server id
-                        router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: link.serverId } });
+                        router.push(`/authorized/(tabs)/respondents/${link.server_id}`);
                         return uploaded
                     } 
                     catch (err) {
@@ -222,12 +217,11 @@ export default function CreateRespondent() {
                     }
                 }
                 else{
-                    alert('Respondent saved. Will sync next time connection is found.')
+                    router.push(`/authorized/(tabs)/respondents/-${result}`);
+                    alert('Respondent saved. Will sync next time connection is found.');
+                    return result
                 }
             }
-            //if not connected/uploaded, redirect using the local id
-            router.push({ pathname: '/authorized/(tabs)/Record', params: { redirected: result } });
-            return result
         }
         catch(err){
             console.error(err);
@@ -360,7 +354,8 @@ export default function CreateRespondent() {
                     <Text style={styles.buttonText}>Submit</Text>
                 </TouchableOpacity>
 
-                <StyledButton onPress={() => {existing ? goToDetail() : goToIndex()}} label={'Cancel'} />
+                <StyledButton onPress={() => {existing ? router.push(`/authorized/(tabs)/respondents/${redirectId}`) :
+                    router.push(`/authorized/(tabs)/respondents`)}} label={'Cancel'} />
             </View>
             <View style={styles.spacer}>
 

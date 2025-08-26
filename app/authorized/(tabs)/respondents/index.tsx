@@ -1,4 +1,5 @@
 import Input from "@/components/inputs/Input";
+import StyledButton from "@/components/inputs/StyledButton";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
@@ -66,16 +67,17 @@ export default function Respondents(){
         <StyledScroll>
             <StyledText type="title">Respondents</StyledText>
             <Input value={search} onChange={(val) => setSearch(val)} label='Search' placeholder={'try searching a name...'} />
+            <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} label='Create New Respondent' />
             {localRespondents.length == 0 && serverRespondents.length == 0 &&
             <StyledText>No respondents yet. Make one!</StyledText>}
             {localRespondents.length > 0 && <View>
                 <StyledText type="subtitle">Not Uploaded</StyledText>
-                {localRespondents.map(r => (<RespondentCard respondent={r} fromServer={false} />))}
+                {localRespondents.map(r => (<RespondentCard key={r.local_id} respondent={r} fromServer={false} />))}
             </View>}
             {isServerReachable && <View>
                 <StyledText type="subtitle">From Server</StyledText>
                 {serverRespondents.length > 0 ? 
-                    serverRespondents.map(r => (<RespondentCard respondent={r} fromServer={true}/>)) :
+                    serverRespondents.map(r => (<RespondentCard key={r.id} respondent={r} fromServer={true}/>)) :
                     <StyledText>No respondents found.</StyledText>}
             </View>}
         </StyledScroll>

@@ -7,34 +7,37 @@ import { Interaction } from "@/database/ORM/tables/interactions";
 import checkDate from "@/services/checkDate";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 
 export default function EditInteraction(){
     //navigator the help with directions to/from
-    const navigation = useNavigation();
     const router = useRouter();
-    const { local_id, server_id } = useLocalSearchParams();
+    const [redirectId, setRedirectId] = useState('');
+    const { localId, serverId } = useLocalSearchParams();
     const { isServerReachable } = useConnection();
 
     const [existing, setExisting] = useState(null);
     useEffect(() => {
-        if (local_id) {
+        if (localId) {
             (async () => {
-                const found = await Interaction.find(id);
+                const found = await Interaction.find(localId);
+                console.log(found)
                 const serialized = await found?.serialize();
                 setExisting(serialized);
+                setRedirectId(`-${serialized.respondent_uuid}`);
             })();
         }
-        if(server_id) {
+        if(serverId) {
             (async () => {
                 try {
-                    const response = await fetchWithAuth(`/api/record/interactions/${server_id}/`);
+                    const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`);
                     const data = await response.json();
                     if (response.ok) {
                         setExisting(data);
+                        setRedirectId(data.id);
                     } 
                     else {
                         console.error('API error', response.status);
@@ -45,18 +48,21 @@ export default function EditInteraction(){
                 }
             })();
         }
-    }, [local_id, server_id]);
+    }, [localId, serverId]);
+
+
     const handleDelete = async() => {
         try{
             if(existing?.id){
                 await Interaction.delete(existing.id)
             }
-            navigation.navigate('(tabs)', { screen: 'Edit' })
+            router.push(`/authorized/(tabs)/respondents/${redirectId}`)
         }
         catch(err){
             console.error(err);
         }
     }
+
     //handle submission
     const onSubmit = async (data) => {
         //in case of switching, set stale fields to null
@@ -70,12 +76,12 @@ export default function EditInteraction(){
             return;
         }
         let result = null
-        if(server_id && isServerReachable){
+        if(serverId && isServerReachable){
             try{
                 if(data.numeric_component == '') data.numeric_component = null;
                 data.subcategories_data = data.subcategory_data;
                 console.log('uploading interaction', data);
-                const response = await fetchWithAuth(`/api/record/interactions/${server_id}/`, {
+                const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
@@ -89,7 +95,7 @@ export default function EditInteraction(){
                 console.error(err);
             }
         }
-        else if(server_id && !isServerReachable){
+        else if(serverId && !isServerReachable){
             alert('Please reconnect to edit this interaction.')
         }
         //try saving/uploading the data
@@ -103,7 +109,7 @@ export default function EditInteraction(){
                         //upload the interaction
                         const uploaded = await Interaction.upload();
                         //automatically redirect the user to the record page with this respondent loaded by passing the server id
-                        router.push({ pathname: '/authorized/(tabs)/Edit' });
+                        router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
                         return uploaded
                     } 
                     catch (err) {
@@ -120,7 +126,7 @@ export default function EditInteraction(){
             }   
         }
         //if not connected/uploaded, redirect using the local id
-        router.push({ pathname: '/authorized/(tabs)/Record' });
+        router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
         return result
     };
     const subcatData = useMemo(() => {
@@ -144,7 +150,7 @@ export default function EditInteraction(){
             interaction_date: existing?.interaction_date ?? null,
             interaction_location: existing?.interaction_location ?? '',
             numeric_component: existing?.numeric_component ?? '',
-            subcategory_data: server_id ? existing?.subcategories : subcatData,
+            subcategory_data: serverId ? existing?.subcategories : subcatData,
         }
     }, [existing]); 
 
@@ -187,8 +193,8 @@ export default function EditInteraction(){
                         console.log("Validation errors:", formErrors);
                     })} label={'Submit'} 
                 />
-                <StyledButton onPress={() => navigation.navigate('(tabs)', { screen: 'Edit' })} label={'Cancel'}/>
-                {existing && !server_id && <StyledButton onPress={handleDelete} label={'Delete'}/>}
+                <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/${redirectId}`)} label={'Cancel'}/>
+                {existing && !serverId && <StyledButton onPress={handleDelete} label={'Delete'}/>}
             </View>
 
             <View style={styles.spacer}>

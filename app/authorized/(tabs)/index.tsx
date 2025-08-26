@@ -9,7 +9,7 @@ import { getSecureItem } from "@/services/secureStorage";
 import syncMeta from '@/services/syncMeta';
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
-import { useRouter } from "expo-router";
+import { router, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -42,9 +42,14 @@ function Me() {
     }, []);
 
     return(
-        <View style={styles.card}>
-            {me  ? <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> :
-                <StyledText type="defaultSemiBold">You are offline! Some features may not be available.</StyledText>}
+        <View style={{ margin: 5}}>
+            {me  ? <View>
+                    <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> 
+                </View> : <TouchableOpacity onPress={() => router.push('/authorized/(tabs)/about/offlineInfo')} style={{ backgroundColor: theme.colors.warningBg, padding: 8 }}>
+                    <StyledText style={{color: theme.colors.warningText, textAlign: 'center'}} type="defaultSemiBold">
+                        You are offline! Some features may not be available. Tap here for more information.
+                    </StyledText>
+                </TouchableOpacity>}
         </View>
     )
 }
@@ -52,7 +57,8 @@ function Me() {
 export default function Index() {
     const router = useRouter();
     const { isServerReachable } = useConnection();
-    
+    const [username, setUsername] = useState('');
+
     useEffect(() => {
         const setDB = async () => {
             //await resetDatabase();
@@ -72,7 +78,6 @@ export default function Index() {
 
     return (
         <StyledScroll>
-            <StyledText type='title'>Welcome!</StyledText>
             <Me />
             <View style={styles.card}>
                 <StyledText type="subtitle">Quick Actions</StyledText>
