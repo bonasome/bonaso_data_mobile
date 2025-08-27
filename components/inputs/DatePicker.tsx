@@ -5,7 +5,7 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import StyledText from "../styledText";
 import StyledButton from './StyledButton';
 
-export default function DatePicker({ value, onChange, error, label }){
+export default function DatePicker({ value, onChange, error, label, name }){
     const [showDate, setShowDate] = useState(false);
 
     return(

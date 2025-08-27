@@ -1,42 +1,67 @@
-# BONASO Data Portal Mobile: Authentication Overview:
+# BONASO Data Portal Mobile: Authentication Overview
 
 ---
 
-The BONASO Data Portal Server handles most of the legwork for authentication, but the mobile has its own logic, mainly owing to the fact that the app needs to avaialable offline, and thus must have its own framework for when that happens. 
+## 1. Authentication Flow
+
+The BONASO Data Portal Server handles most of the authentication logic. The mobile app has its own framework to support offline mode, allowing users to access the app even when there is no internet connection.
+
+### 1.1 Online Login
+
+When the device is online, the user enters their username and password. This sends a request to the server, which, if successful, returns an access token and a refresh token. The user is then signed into the app.
+
+Upon successful online login, the username and a bcrypt-hashed password are stored in secure storage. This enables offline login later.
+
+See the login flow at [app/login/index.tsx].
+
+### 1.2 Offline Login
+
+When offline, the app checks secure storage for previously saved credentials. If they match, the user can log in in offline mode.
+
+No access or refresh tokens are available in this mode.
+
+The user cannot make API calls until they log in online again.
+
+See offline login logic at [services/offlineLogic.js].
 
 ---
 
-## Offline/Online Login
-When there is connection to the internet, a user enters their login/password and this sends a request to the server, which if successful will send the user an access and refresh token and sign them into the app. 
+## 2. Token Management
 
-Whenever the user has a successful online login, their username and a bcrypt hashed version of their password are stored in secure storage, which can then be used for offline login. See more about the login flow at [app/login/index.tsx].
+The mobile app uses access and refresh tokens stored and managed in context/AuthContext.tsx.
 
-When the user is offline, the device will check secure storage for offline credentials (created when a user logs in online). If they are found and match, the user will be allowed into the app in offline mode. They will not have a refresh/access token, and so they will not be able to make any API calls. To do this they will need to log in again when online. See more about offline login at [services/offlineLogic.js].
+Tokens must be sent with all API requests, except for login. If the access token has expired, the app automatically uses the refresh token to obtain a new access token.
 
-## Token Management Principles
-Unlike the frontend, the mobile app relies on access and refersh tokens sent via JSON and stored/managed in [context/AuthContext.tsx].
-
-These tokens are required to be sent with all API requests (save for logging in). If a user does not have a valid access token, then the app will try to use the refresh token to get a new one (see FETCH WITH AUTH below). If the user does not have a valid refresh token, they will be signed out. Without the refresh token, the backend will reject all of their requests. 
-
-When using offline sign in, tokens are not used, since there is no API that can be accessed. 
+Tokens are not used during offline login since no API calls are possible.
 
 ---
 
-## Inactivity Context
-If a user is inactive (i.e., they have not touched the screen) for 5 minutes, they will be automatically signed out for security reasons. See [context/InactivityContext.tsx] for more details.
+## 3. Inactivity Handling
+
+For security, users are automatically signed out if inactive (no screen interaction) for 5 minutes.
+
+See details at [context/InactivityContext.tsx].
 
 ---
 
-## Fetch With Auth
-Virtually all api requests (except for logging in) should be wrapped in the **fetchWithAuth** helper function located at [services/fetchWithAuth.js]. This function will attempt to call the API, but if the access token is expired and a refresh token is present, it will automatically try to get a new refresh then retry the API call. This simplifies the process by assuring that requests do not fail due to an expired access token, holds simultanous requests until a refresh token is found, and also slightly simplifies the request code since if automatically includes headers (necessary for the cookie JWT system).
+## 4. Fetch With Auth
 
-The fetchWithAuth process is:
-    1. The user makes a request.
-    2. If the access token is expired, fetchWithAuth calls the refresh function (located at [src/contexts/UserAuth.jsx])
-        - If this happens during an API request (i.e., not preemptively, it will trigger a global loading state to prevent issues while pages are rendering)
-        - If any further requests are made while the refresh token is being fetched, they will be halted until the refresh token is found to prevent race conditions.
-    3. Once the new refresh token is found, the request will be tried again.
+All API requests (except login) should use the fetchWithAuth helper (services/fetchWithAuth.js). This function:
 
-See more at [services/fetchWithAuth.js]
+Attempts the API request.
+
+If the access token is expired:
+    - Calls the refresh function ([src/contexts/UserAuth.jsx]) to obtain a new token.
+    - Halts any simultaneous requests until the new token is available to prevent race conditions.
+    - Retries the original request once a valid token is obtained.
+
+This simplifies request handling by automatically including headers, managing tokens, and preventing failures due to expired access tokens.
+
 ---
 
+## Further References
+[context/AuthContext.tsx] – token storage and management
+[context/InactivityContext.tsx] – inactivity logout logic
+[app/login/index.tsx] – login flow
+[services/offlineLogic.js] – offline login handling
+[services/fetchWithAuth.js] – authenticated API requests

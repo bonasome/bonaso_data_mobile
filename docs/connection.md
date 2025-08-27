@@ -1,28 +1,50 @@
-# BONASO Data Portal Mobile: Authentication Overview:
+# BONASO Data Portal Mobile: Authentication & Connectivity
+
+The BONASO Data Portal Server handles most of the authentication, but the mobile app must also manage its own logic for offline use. Offline functionality is a **core feature**, designed for users collecting data in remote areas.
 
 ---
 
-The BONASO Data Portal Server handles most of the legwork for authentication, but the mobile has its own logic, mainly owing to the fact that the app needs to avaialable offline, and thus must have its own framework for when that happens. 
+## Quick Guide
+
+> **Important:** The app must be initialized while online. Otherwise, login information will not be saved and required data will not download.
+
+### Online-only Features
+- Login with valid access/refresh tokens  
+- View/Edit respondents and interactions from the server  
+- Stronger validation (prerequisites, repeat checks)  
+- Always up-to-date tasks, metadata, and server sync  
+
+### Offline Features
+- Local login (no server tokens)  
+- View tasks and associated indicator/project/org info  
+- Create respondents (requires previously synced metadata)  
+- Create interactions for local respondents (requires synced tasks)  
+- View/Edit respondents and interactions stored locally  
+- Access "About" screens  
 
 ---
 
 ## Offline/Online Considerations
-The BONASO Data Portal Mobile application was primarily designed to give users who may be working in remote areas the ability to collect data while on the go. As such, offline functionality is a paramount concern of the app. 
 
-While online, the app will function similarly to the website, and will always try to pull the most recent information from the server.
+- **Online mode** mirrors the website and always pulls the latest data.  
+- **Offline mode** uses only local data (synced tasks, locally saved respondents, interactions).  
+- **Safety:** All new respondents/interactions are first saved locally, then uploaded automatically if online. Otherwise, they sync once the server is reachable again.  
 
-However, in the background, the app will download tasks to the device for use later offline (important for recording interactions).
+---
 
-When offline, the app will only have local data available, which most of the time will just be the user's previously downloaded tasks and any respondents/interactions they have recorded while offline. 
+## ID Management
 
-For safety reasons, whenever a respondent/interaction is created on the app, it will first save it locally. Then it will try to upload if there is server connection. If there is no connection, it can be uploaded next time there is connection. 
+To avoid conflicts between local and server records, the app uses a **RespondentLink** model:  
+- Each respondent gets a unique local UUID.  
+- If also synced with the server, a `server_id` is linked.  
+- Components accept either `localId` or `serverId` params to fetch data from the right source.  
 
-The app attempts to manage the issue of conflicting local and server IDs by creating a **RespondentLink** model that contains both a unique uuid that the device can use when referencing this respondent and a corresponding server_id (if the respondent exists in the server). However, detail and edit components for respondents and interactions will still take either a serverId param or a localId param so that the component knows the source of the id and can access the data from the correct source. 
-
+---
 
 ## Connection Context
-The Connection Context Wrapper at [context/ConnectionContext.tsx] handles the apps connectivity states. It checks connection every time an API request is made or every 60 seconds by default. If no connection is found, it will set an isConnected state to false. If connection is found, but the server is down, it will set an isServerReachable state to false. 
 
-isServerReachable is frequently used throughout the app to check if there is connection before trying to make any server requests. 
-
-Chcking conneciton can be triggered manually by clicking the sync button in the header (see [components/header.tsx])
+The Connection Context wrapper (`context/ConnectionContext.tsx`):  
+- Checks connectivity on every API request, or every 60 seconds by default.  
+- Sets `isConnected` = false if no connection is found.  
+- Sets `isServerReachable` = false if connected but the server is down.  
+- Developers can trigger a manual check via the **sync button** in the header (`components/header.tsx`).  

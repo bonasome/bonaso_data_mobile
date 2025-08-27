@@ -14,7 +14,7 @@ const data = await response.json();
 ```
 
 ## authServices ([services/authServices.js])
-This is a helper function that translates some of the features found in [src/contexts/AuthContext.tsx] into vanilla js so that fetchWithAuth can also use them. 
+This is a helper function that translates some of the features found in [src/contexts/AuthContext.tsx] into vanilla JS so that fetchWithAuth can also use them. 
 
 ## cleanLabels ([services/cleanLabels.js])
 Since our database often sends hard-to-read labels that include underscores or all lowercase words, this function tries to help make these more readable by splitting words, capitalizing, and spelling out some common abbreviations. It can be used instead of a full value/label map sometimes. 
@@ -32,7 +32,9 @@ Contains helper functions that get/store/delete SecureSave items.
 
 **Example Usage**: 
 ```javascript
-await saveSecureItem(value, 'name')
+await saveSecureItem(value, 'name');
+await getSecureItem('name'); //returns value
+await deleteSecureItem('name');
 ```
 
 ## checkServerConnection ([services/checkServerConnection.js])
@@ -46,3 +48,22 @@ if(serverResponse){
 }
 ```
 
+## syncMeta ([services/syncMeta.js])
+Helper function that retrieves the respondent meta from the server and then parses/saves it to the local database. 
+
+**Example Usage**:
+```javascript
+const response = await syncMeta();
+const meta = response.json();
+setMeta(meta)
+```
+
+## syncTasks ([services/syncTasks.js])
+Helper function that retrieves the a user's tasks from the server and downloads them to the database. 
+
+**Example Usage**:
+```javascript
+const response = await syncTasks();
+const tasks = response.json();
+setTasks(tasks)
+```

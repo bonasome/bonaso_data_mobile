@@ -3,7 +3,9 @@ The following is a basic overview of the frontend site, grouped into "apps" of r
 
 Navigation is primarily handled via _layout.tsx files nested within each folder of the app. Most broad groups are set within [app/authorized/(tabs)/_layout.tsx].
 
-**Note**: Relies on Components includes specialized components for that page. For globally reuseable components, see [docs/components.md]
+All of the apps content (except for login) should be placed within the authorization folder, since the user should be logged in to see any content.
+
+**Note**: Relies on Components includes specialized components for that page. For globally reuseable components, see [components.md](docs/components.md)
 
 ---
 
@@ -11,6 +13,10 @@ Navigation is primarily handled via _layout.tsx files nested within each folder 
 - Login
 - Home
 - Respondents
+    - Index
+    - Detail
+    - Respondent Form
+    - Interaction Form
 - Tasks
 - About
     - Offline Information
@@ -34,18 +40,36 @@ Navigation is primarily handled via _layout.tsx files nested within each folder 
 ---
 
 ## Respondents
-**Index Component**: RespondentsIndex ([app/authorized/(tabs)/respondents/index.tsx])
-**Detail Component**: RespondentDetail ([app/authorized/(tabs)/respondents/id.tsx])
+
+### Index
+**Main Component**: RespondentsIndex ([app/authorized/(tabs)/respondents/index.tsx])
+
+**Description**: Contains a list view of all respondents (segmented by whether they are stored locally or or pulled from the server).
+
+### Detail
+**Main Component**: RespondentDetail ([app/authorized/(tabs)/respondents/id.tsx])
     - **Relies on Components**:
         - AddInteractions ([components/respondents/addInteraction.tsx]): For creating interactions for a respondent.
         - Interactions ([components/respondents/interactions.tsx]): For viewing a list of respondent interactions
-**Create/Edit Components**: 
-    - RespondentForm ([app/authorized/(tabs)/respondents/forms/respondentForm.jsx]): For creating/editing a respondent. Takes a serverId or a localId param for editing respondents, depending on if the respondent is being pulled from the server or locally from the device. 
-    - InteractionForm ([app/authorized/(tabs)/respondents/forms/interactionForm.jsx]): For editing an interaction. Takes a serverId or a localId param, depending on if the interaction is being pulled from the server or locally from the device. 
 
-**Description**: The respondents tab contains all information related to viewing and recording data about respondents.
+**Description**: Detail view for a specific respondent that also allows a user to view/create interactions for that respondent. 
 
-**Notes**: When routing to the [id].tsx file, prefix andy local ids with a '-'. Server ids do not need to be prefixed.
+**Notes**: When routing to the [id].tsx file, prefix any local ids with a '-'. Server ids do not need to be prefixed. This is how the component knows whether to contact the server or pull from the database.
+
+Tasks must be properly synced for interactions/add interactions to work. The respondent meta must also be properly synced for labels to display properly. 
+
+### Respondent Form
+**Main Component**: RespondentForm ([app/authorized/(tabs)/respondents/forms/respondentForm.tsx]) 
+
+**Description**: For creating/editing a respondent. Takes a serverId or a localId param for editing respondents, depending on if the respondent is being pulled from the server or locally from the device. 
+
+**Notes**: The respondent meta must also be properly synced for input options to display properly. 
+
+### Interaction Form
+**Main Component**: InteractionForm ([app/authorized/(tabs)/respondents/forms/interactionForm.tsx])
+
+**Description**: For editing an interaction. Takes a serverId or a localId param, depending on if the interaction is being pulled from the server or locally from the device. 
+
 
 --- 
 
