@@ -3,8 +3,9 @@ import fetchWithAuth from './fetchWithAuth';
 
 export default async function syncTasks(){
     try {
-        const response = await fetchWithAuth('/api/manage/tasks/mobile/?indicator_type=respondent');
+        const response = await fetchWithAuth('/api/manage/tasks/mobile/');
         const data = await response.json();
+        console.log(data)
         if (response.ok) {
             await saveTasks(data);
         }

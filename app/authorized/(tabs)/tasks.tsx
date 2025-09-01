@@ -1,5 +1,6 @@
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
+import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
@@ -9,6 +10,10 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 
 function TaskCard({ task }) {
+    /*
+    Card that displays information about a task and its associated indicator. 
+    - task (object): The task to display information about
+    */
     const [expanded, setExpanded] = useState(false);
     return(
         <View style={styles.card}>
@@ -48,17 +53,21 @@ function TaskCard({ task }) {
 }
 
 export default function Tasks() {
+    /*
+    Component that displays a list of tasks from the local database. 
+    */
+   const { offlineMode } = useAuth();
     const { isServerReachable } = useConnection();
     const [tasks, setTasks] = useState([]);
 
+    //fetch the tasks from the tb
     useEffect(() => {
         const loadTasks = async () => {
-            if (isServerReachable){
+            if (isServerReachable && !offlineMode){
                 await syncTasks();
             }   
             const myTasks = await Task.all();
-            let serialized = await Promise.all(myTasks.map(t => t.serialize()));
-            console.log(serialized)
+            let serialized = await Promise.all(myTasks.map(t => t.serialize())); //serialize the array
             setTasks(serialized);
         };
         loadTasks();
@@ -75,6 +84,7 @@ export default function Tasks() {
     );
 }
 
+//styles
 const styles = StyleSheet.create({
     card: {
         padding: 20,

@@ -3,6 +3,9 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 
 export default function TabLayout() {
+    /*
+    Tab layout controls the tabs at the bottom of the app and is the main layout for navigating the app.
+    */
   return (
     <Tabs
         screenOptions={{

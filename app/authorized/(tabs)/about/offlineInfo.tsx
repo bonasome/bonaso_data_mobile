@@ -6,6 +6,9 @@ import { router } from "expo-router";
 import { StyleSheet, View } from "react-native";
 
 export default function OfflineInfo(){
+    /*
+    Static component that displays information about features available while offline.
+    */
     return(
         <StyledScroll>
             <StyledText type="subtitle">You're offline!</StyledText>

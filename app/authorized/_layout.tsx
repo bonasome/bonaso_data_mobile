@@ -5,14 +5,18 @@ import { useEffect } from "react";
 import { AppState } from 'react-native';
 
 export default function RootLayout() {
+    /*
+    Root layout for the authorized layer, which contains all the app's content save for the login screen. 
+    */
+
+    //try to reopen the db if the app state changes
     useEffect(() => {
         const subscription = AppState.addEventListener('change', (state) => {
             if (state === 'active') {
                 // Reopen DB or warm it up
-                openDB(); // you can even validate it with a SELECT 1 if needed
+                openDB();
             }
         });
-
         return () => subscription.remove(); // clean up
     }, []);
 

@@ -4,6 +4,9 @@ import theme from '@/themes/themes';
 import { StyleSheet, View } from 'react-native';
 
 export default function AboutScreen() {
+    /*
+    Static information component that displays basic information about the app and how to use it.
+    */
     return (
         <StyledScroll>
             <StyledText type="title">About</StyledText>

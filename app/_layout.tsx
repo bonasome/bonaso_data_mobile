@@ -7,16 +7,21 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 
 function AppContent() {
     const { signOut } = useAuth();
-  return (
-        <InactivityProvider onTimeout={signOut}>
-            <ConnectionTest>
-                <Stack screenOptions={{headerShown: false}}/>
-            </ConnectionTest>
-        </InactivityProvider>
-  );
+    //sign the user out on timeout. Wrap in connection context
+    return (
+            <InactivityProvider onTimeout={signOut}>
+                <ConnectionTest>
+                    <Stack screenOptions={{headerShown: false}}/>
+                </ConnectionTest>
+            </InactivityProvider>
+    );
 }
 
 export default function RootLayout() {
+    /*
+    Root layout for the entire app, wrapped in the gensture handler wrapper, which checks for user activity
+    and the auth provider which manages a user's auth status.
+    */
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
