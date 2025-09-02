@@ -25,6 +25,7 @@ export class Interaction extends BaseModel {
         numeric_component: {type: 'integer', allow_null: true},
         task: {type: 'integer', relationship: {table: 'task', column: 'id'}},
         respondent_uuid: {type: 'text'},
+        comments: {type: 'text', allow_null: true},
         synced: {type: 'boolean', default: 0}
     }
     static relationships = [
@@ -83,6 +84,7 @@ export class Interaction extends BaseModel {
                 task_id: ir.task.id,
                 numeric_component: ir.numeric_component,
                 subcategories_data: subcategory_data,
+                comments: ir.comments
             })
         }
         try {

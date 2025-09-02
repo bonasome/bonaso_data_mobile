@@ -16,42 +16,48 @@ import { CommentModal, NumberModal, SubcategoryModal } from "./addInteractionMod
 
 
 export default function AddInteraction({ localId, serverId=null, onSubmit  }){
-    /*PARAMS: 
-        - localId, the local uuid stored on device in the RespondentLink model, required
-        -serverId, optional id that links to the server for certain serverside checks
+    /*
+        Component that allows a user to create a number of interactions at once by entering a date and location
+        and then selected a number of tasks to create interactions for. Designed to be used in the respondent detail
+        page so that all interactions are linked to the same respondent. 
+        - localId (integer): the local respondent uuid stored on device in the RespondentLink model
+        - serverId (integer, optional): optional id that links to the server for certain serverside checks
+        - onSubmit (function): alerts parent component that an update was made so that it can trigger 
+            updates in other components
     */
-    //context to Fcheck connection
+    //context to check connection
     const { isServerReachable } = useConnection();
     //vars to track high level information about all interactions
     const [doi, setDoi] = useState(new Date());
     const [location, setLocation] = useState('');
-    //track selected tasks
-    const [selected, setSelected] = useState([]);
-    //track related information
-    const [number, setNumber] = useState({}); //track numbers for tasks that require numbers (no subcats)
-    const [subcats, setSubcats] = useState({}); //track subcateogry information per task {task_id: [{id: null, subcategory: {name: '', id: 1}, numeric_component: 1}]}
-    const [allowedSubcats, setAllowedSubcats] = useState({}); //similar map that tracks allowed subcategories if there are prerequisites
+    //track selected tasks and information about them
+    const [selected, setSelected] = useState([]); //{id: taskID, task: task, subcategories_data: [], numeric_component: ''}
+    //map that tracks allowed subcategories if there are prerequisites
+    const [allowedSubcats, setAllowedSubcats] = useState({}); 
     //meta vars to display/manage modals when more info is required
     const [showSubcats, setShowSubcats] = useState(false)
     const [showNumber, setShowNumber] = useState(false);
     const [showComments, setShowComments] = useState(false);
-
-    const [modalTask, setModalTask] = useState(null); //the task currently employing the modal
+    //the task/associated information currently employing one of the modals
+    const [modalTask, setModalTask] = useState(null); 
     //show date picker for DOI
     const [showDate, setShowDate] = useState(false);
+    //tracks available tasks
     const [tasks, setTasks] = useState([]);
-
+    //custom page tracker for paginating tasks (default length of 10)
+    const [page, setPage] = useState(0); 
+    //tracks if tasks are loding
     const [loading, setLoading] = useState(false);
 
+    //load tasks by default
     useEffect(() => {
         const loadTasks = async () => {
             setLoading(true);
             if (isServerReachable){
-                await syncTasks();
+                await syncTasks(); //try to fetch online if tasks are over 12 hours old
             }   
             const myTasks = await Task.all();
             let serialized = await Promise.all(myTasks.map(t => t.serialize()));
-            console.log(serialized)
             setTasks(serialized);
             setLoading(false);
         };
@@ -59,17 +65,18 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     }, [isServerReachable]);
 
 
-    //function that runs whever a task is selected or removed from the list
+    //function that runs whever a task is added from selected
     const handlePress = async (task) => {
         //determine if task is already selected
         const existing = selected.filter(s => s.id === task.id);
 
-        //if yes, and there are no subcats/numeric inputs, remove it from selected
-        if(existing.length > 0 && !task.indicator.subcategories.length > 0 && !task.indicator.require_numeric){
-            setSelected(selected.filter(s => s.id !== task.id))
+        //if its already in the list, alert the user and exit the function
+        if(existing.length > 0){
+            alert('Task already in interaction!');
             return;
         }
-        //by default, allow a user to select all subcategories
+
+        //by default, allow a user to select all subcategories, if applicable
         if(task.indicator.subcategories.length > 0) setAllowedSubcats(prev => ({...prev, [task.id]: task.indicator.subcategories}));
         
         //check for prereqs
@@ -85,13 +92,14 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 const inBatch = selected.filter(t => t?.task?.indicator.id.toString() === requiredTask?.indicator.id.toString())
                 if (inBatch.length > 0) {
                     isValid = true;
+                    //if found and this prereq is supposed to match subcategories, update allowed subcategories
                     if(task?.indicator?.match_subcategories_to === prereq.indicator.id){
                         const interSubcatIDs = inBatch.subcategories_data.map((cat) => (cat?.subcategory?.id));
                         const interSubcats = task.indicator.subcategories.filter(cat => (interSubcatIDs.includes(cat.id)))
                         setAllowedSubcats(prev=> ({...prev, [task.id]: interSubcats}));
                     }  
                 }
-
+                //if not found in batch, try to find something offline
                 if (!isValid){
                     if(isServerReachable && serverId){
                         const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}&task_indicator=${prereq.id}&before=${doi}`);
@@ -99,7 +107,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                         if(data.results.length > 0){
                             const validPastInt = data.results.find(inter => inter?.task?.indicator?.id == prereq.id);
                             if (validPastInt && new Date(validPastInt.interaction_date) <= new Date(doi)) {
-                                isValid=true //if found, we're good. Just like above, set subcats if applicable
+                                isValid=true //if found, we're good. Just like above, limit allowedSubcats if applicable
                                 if(task.indicator.match_subcategories_to === prereq.id){
                                     setAllowedSubcats(prev=> ({...prev, [task.id]: validPastInt.subcategories.map((cat) => ({id: cat.subcategory.id, name: cat.subcategory.name}))}));
                                 }
@@ -107,6 +115,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                         }
                     }
                 }
+                //if nothing is found, warn the user this might throw a flag
                 if(!isValid){
                     alert(`This interaction requires that this respondent has had an interaction related to task "${prereq.indicator.code}: ${prereq.indicator.name}". However, we could not find an instance of this on record. If this an interaction with this task is not added, this interaction will be flagged.`)
                 }
@@ -120,11 +129,12 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 const msInDay = 1000 * 60 * 60 * 24; //convert ms to days
                 // check if any interaction was within the past 30 days of interactionDate
                 const tooRecent = data.results.some(inter => {
-                    const diffInDays = Math.abs(new Date(inter?.interaction_date) - new Date(date)) / msInDay;
+                    const diffInDays = Math.abs(new Date(inter?.interaction_date) - new Date(doi)) / msInDay;
                     return diffInDays <= 30;
                 });
+                //warn the user it will be flagged
                 if (tooRecent) {
-                    alert('This respondent has had this interaction in the last month. ');
+                    alert('This respondent has had this interaction in the last 30 days and will be flagged.');
                 }
             }
             catch(err){
@@ -148,6 +158,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
             setModalTask(newIr)
         }
     }
+
     //remove a task from the batch
     const removeItem = (task) => {
         setSelected(prev => {
@@ -155,7 +166,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
             return updated;
         });
     };
-    //handle submission
+
+    //handle submission of the interactions
     const handleSubmit = async() => {
         //check date of interaction and date is valid
         if(!doi || new Date(doi) > new Date()){
@@ -170,14 +182,15 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         //save and submit
         try{
             console.log('submitting tasks...', localId);
-            for(const task of selected){
+            for(const ir of selected){
                 const data = {
                     interaction_date: doi.toISOString().split('T')[0], //remove timestamp
                     interaction_location: location,
                     respondent_uuid: localId,
-                    task: task.id,
-                    numeric_component: number[task.id] || null,
-                    subcategory_data: subcats[task.id] || []
+                    task: ir.task.id,
+                    numeric_component: ir?.numeric_component || null,
+                    subcategory_data: ir?.subcategories_data || [],
+                    comments: ir?.comments || '',
                 }
                 //save this data locally
                 const saved = await Interaction.save(data);
@@ -199,12 +212,9 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         catch(err){
             console.error('Save failed', err)
         }
-        //setDoi(new Date());
-        //setLocation('');
-        setSelected([]);
-        setSubcats({});
-        setNumber({});
+        setSelected([]); //reset selected
     }
+
     //helper function to manage the date
     const onChangeDate = (event, selectedDate) => {
         setShowDate(false);
@@ -236,7 +246,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         setSelected(prev => prev.map(item => item.id === modalTask.id ? { ...item, subcategories_data: val } : item))
         setShowSubcats(false);
     }
-
+    
+    //determine what happens when the user taps the button for a task in selected, by default remove it, or reopen to information modal
     const handlePressAgain = (ir) => {
         if(ir?.task?.indicator?.subcategories?.length > 0){
             setModalTask(ir); 
@@ -251,6 +262,9 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         }
     }
 
+    //only map tasks in page
+    const tasksToMap = tasks.slice(page*10, (page*10+10));
+
     if(loading) return <LoadingSpinner label={'tasks'} />
     //if there are not tasks, you can't really do this so return nothing
     if(!tasks || tasks.length === 0) return (
@@ -260,6 +274,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     )
     return(
         <View>
+            {/* Conditional modals */}
             {showSubcats && <SubcategoryModal onUpdate={(val) => {handleSubcatEdit(modalTask, val)}} 
                 onClear={() => {removeItem(modalTask)}}
                 onCancel={() => setShowSubcats(false)} existing={modalTask?.subcategories_data ?? []}
@@ -276,15 +291,15 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
             {showComments&& <CommentModal onUpdate={(val) => setSelected(prev =>
                     prev.map(item => item.id === modalTask.id ? { ...item, comments: val } : item)
                 )} 
-                onCancel={() => setCommentsModalActive(false)} 
+                onCancel={() => setShowComments(false)} 
                 onClear={(val) => setSelected(prev =>
                     prev.map(item => item.id === modalTask.id ? { ...item, comments: '' } : item)
                 )}
                 existing={modalTask?.comments ?? ''} 
             />}
 
-            <View style={styles.step}>
-                <StyledText type='subtitle'>Step 2: Select a Date/Location</StyledText>
+            <View style={styles.section}>
+                <StyledText type='subtitle'>Create New Interactions</StyledText>
                 <StyledText type='defaultSemiBold'>Date</StyledText>
                 <View style={styles.date}>
                     <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
@@ -301,11 +316,9 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 </View>
                 <StyledText type='defaultSemiBold'>Location</StyledText>
                 <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
-            </View>
-        
-            <View style={styles.step}>
-                <StyledText type='subtitle'>Step 3: Choose your tasks</StyledText>
-                {tasks.length > 0 && tasks.map((task) => {
+
+                <StyledText type='defaultSemiBold'>Tap on the tasks below to add them to this interaction...</StyledText>
+                {tasksToMap.length > 0 && tasksToMap.map((task) => {
                     const exists = selected.find(s => s.id === task.id);
                     if(!exists) return <StyledButton label={task?.display_name} onPress={() => handlePress(task)} />
                     return(
@@ -318,26 +331,29 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                                     <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
                                 </View>
                             ))}
+
                             {exists?.numeric_component && <View style={styles.li}>
                                 <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
                                 <StyledText>{exists.numeric_component} </StyledText>
                             </View>}
+
                             <IconInteract onPress={() => {setShowComments(true); setModalTask(exists)}} icon={<MaterialCommunityIcons name="comment-plus" size={24} color="white" />} />    
+                            <StyledText type="defaultSemiBold">Comments:</StyledText>
+                            <StyledText>{exists?.comments == '' ? 'No Comments' : `${exists?.comments}`}</StyledText>
+                        
                         </TouchableOpacity>
                     )
                 })}
-                {showSubcats && modalTask?.indicator?.subcategories?.length > 0 && (
-                    <SelectSubcats task={modalTask} />
-                )}
-                {showNumber && modalTask?.indicator?.require_numeric && (
-                    <EnterNumber task={modalTask} />
-                )}
-            </View>
-            <View style={styles.step}>
-                 <StyledText type='subtitle'>Step 4: Save Your Interaction</StyledText>
-                <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
-                    <StyledText type='darkSemiBold' style={styles.buttonText}>Press Here to Save</StyledText>
-                </TouchableOpacity>
+                {/* Small custom pagination system */}
+                {tasks.length > 10 && <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', marginBottom: 30}}>
+                    <StyledButton onPress={() => setPage(prev => prev - 1)} label='Previous' disabled={page == 0} />
+                    <View style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', marginStart: 20, marginEnd: 20}}>
+                        <StyledText>Page</StyledText>
+                        <StyledText>{page+1} of {Math.ceil(tasks.length/10)}</StyledText>
+                    </View>
+                    <StyledButton onPress={() => setPage(prev => prev + 1)} label='Next' disabled={page == (Math.ceil(tasks.length/10)-1)} />
+                </View>}
+                <StyledButton onPress={handleSubmit} label='Press Here to Save' disabled={(selected.length == 0 || location == '' || !doi)} />
             </View>
             
         </View>
@@ -345,10 +361,11 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
 }
 
 const styles = StyleSheet.create({
-    step: {
-        padding: 15,
-        backgroundColor: theme.colors.bonasoMain,
-        marginBottom: 20,
+    section: {
+        padding: 20,
+        backgroundColor: theme.colors.bonasoUberDarkAccent,
+        marginBottom: 10,
+
     },
     button:{
         backgroundColor: theme.colors.bonasoLightAccent,

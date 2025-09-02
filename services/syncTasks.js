@@ -4,13 +4,13 @@ import fetchWithAuth from './fetchWithAuth';
 export default async function syncTasks(forceUpdate=false){
     try {
         const now = new Date();
-        if(!forceUpdate){
-            console.log('checking update history')
+       if (!forceUpdate) {
             const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-            const lastUpdated = SyncRecord.updatedAt('tasks');
-            if(lastUpdated){
+            const lastUpdated = await SyncRecord.updatedAt('tasks');
+            if (lastUpdated) {
                 const updatedDate = new Date(lastUpdated);
-                if(updatedDate < twelveHoursAgo) return;
+                console.log(updatedDate, twelveHoursAgo);
+                if (updatedDate > twelveHoursAgo) return; // skip if recent
             }
         }
         console.log('fetching tasks...')

@@ -50,7 +50,7 @@ export default async function saveTasks(data){
         }
         await Indicator.save(indicator);
 
-        if(item.indicator.subcategories.length > 0){
+        if(item.indicator.subcategories.length > 0 && !item.indicator.match_subcategories_to){
             for(const subcat of item.indicator.subcategories){
                 const is = {
                     indicator: item.indicator.id,

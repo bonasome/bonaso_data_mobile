@@ -46,6 +46,17 @@ export class Indicator extends BaseModel {
         {model: IndicatorPrerequisite, field: 'prerequisites', name: 'indicator_prerequisites', relCol: 'dependent_id', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
         {model: IndicatorSubcategory, field: 'subcategories', name: 'indicator_subcategories', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
     ]
+
+    async serialize() {
+        let baseSerialized = await super.serialize();
+        if(this.match_subcategories_to){
+            const subcats = await IndicatorSubcategory.filter({indicator: this.match_subcategories_to});
+            const subcatsArray = subcats.map(cat => ({id: cat.id, name: cat.name}));
+            baseSerialized.subcategories_data = subcatsArray;
+            console.log(baseSerialized)
+        }
+        return baseSerialized;
+    }
 }
 
 
