@@ -4,7 +4,7 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import StyledText from '../styledText';
 
-export default function MultiCheckbox({ options, value, label, onChange, error }) {
+export default function MultiCheckbox({ options, value, label, onChange, error, valueField='value', labelField='label' }) {
     const toggleValue = (val) => {
         const updated = value.includes(val)
             ? value.filter(v => v !== val)
@@ -16,12 +16,12 @@ export default function MultiCheckbox({ options, value, label, onChange, error }
         <View style={styles.container}>
             <StyledText type='defaultSemiBold'>{label}</StyledText>
             {options.map(item => {
-                const checked = value.includes(item.value);
+                const checked = value.includes(item[valueField]);
                 return (
                     <TouchableOpacity
-                        key={item.value}
+                        key={item[valueField]}
                         style={styles.checkboxContainer}
-                        onPress={() => toggleValue(item.value)}
+                        onPress={() => toggleValue(item[valueField])}
                         activeOpacity={0.7}
                     >
                         <Ionicons
@@ -29,7 +29,7 @@ export default function MultiCheckbox({ options, value, label, onChange, error }
                             size={24}
                             color={checked ? theme.colors.bonasoLightAccent : '#fff'}
                         />
-                        <StyledText type='defaultSemiBold' style={styles.checkboxLabel}>{item.label}</StyledText>
+                        <StyledText type='defaultSemiBold' style={styles.checkboxLabel}>{item[labelField]}</StyledText>
                     </TouchableOpacity>
                 );
             })}

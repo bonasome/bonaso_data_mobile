@@ -1,18 +1,12 @@
-import theme from "@/themes/themes";
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 
-export default function IconInteract({ icon, onPress }){
+export default function IconInteract({ icon, onPress, style }) {
     return (
-        <TouchableOpacity onPress={onPress} style={styles.container}>
-            {icon}
+        <TouchableOpacity
+            onPress={onPress}
+            style={[{ padding: 9, marginStart: 5, marginEnd: 5 }, style]}
+        >
+        {icon}
         </TouchableOpacity>
-    )
+    );
 }
-const styles = StyleSheet.create({
-    container: {
-        backgroundColor: theme.colors.bonasoLightAccent,
-        padding: 9,
-        marginStart: 5, 
-        marginEnd: 5,
-    }
-})

@@ -1,4 +1,22 @@
 import BaseModel from "../base";
+
+export class SyncRecord extends BaseModel {
+    static table = 'sync_record';
+    static fields = {
+        table_updated: {type: 'text',  primary: true},
+        updated_at: {type: 'text', allow_null: true}
+    }
+
+    static async updatedAt(value){
+        if(!value) return null;
+        const record = await SyncRecord.find(value, 'table_updated');
+        if(!record) await SyncRecord.save({table_updated: value, updated_at: null });
+        console.log(record);
+        console.log(record.updated_at);
+        return record.updated_at;
+    }
+}
+
 export class District extends BaseModel {
     static table = 'districts';
     static fields = {

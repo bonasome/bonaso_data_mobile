@@ -1,5 +1,5 @@
+import IconInteract from "@/components/inputs/IconInteract";
 import Input from "@/components/inputs/Input";
-import StyledButton from "@/components/inputs/StyledButton";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
@@ -7,14 +7,24 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Respondent } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+
 
 function RespondentCard({ respondent, fromServer }){
+    /*
+    Simple card that displays a respondent's name and when clicked directs to their detail page.
+    - respondent (object): inforamation about the respondent to display
+    - fromServer (boolean): flag to determine if this respondent was loaded from the server or from the local device
+    */
 
+    //determine name to display (will vary based on whether this is from the server)
     const display = fromServer ? respondent.display_name : 
         respondent.is_anonymous ? `Anonymous Respondent ${respondent.local_id}` : `${respondent.first_name} ${respondent.last_name}`;
+    //determine what id to direct the user to when clicked (local ids will use a '-' prefix)
     const param = fromServer ? respondent?.id : `-${respondent?.local_id}`;
     return (
         <View>
@@ -26,15 +36,22 @@ function RespondentCard({ respondent, fromServer }){
 }
 
 export default function Respondents(){
+    /*
+    Index component that will display a paginated list of respondents
+    */
+   //connection context
     const { offlineMode} = useAuth();
     const { isServerReachable } = useConnection();
 
+    //respondents (seperate locally loaded from server loaded)
     const [serverRespondents, setServerRespondents] = useState([]);
     const [localRespondents, setLocalRespondents] = useState([]);
 
+    //search/page for viewing
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
 
+    //fetch respondents on load or search change
     useEffect(() => {
         //if the user is online, search from the server
         if(isServerReachable && !offlineMode){
@@ -63,55 +80,32 @@ export default function Respondents(){
         searchLocal();
     }, [search]);
 
+
     return(
+        <View style={{ flex: 1}}>
+            <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 25}}>
+                <StyledText type="title">Respondents</StyledText>
+                <View style={{ display: 'flex', flexDirection: 'row'}}>
+                    <FontAwesome5 name="search" size={24} color="white" style={{ marginTop: 'auto', marginBottom: 'auto', marginRight: 20}} />
+                    <Input value={search} onChange={(val) => setSearch(val)} placeholder={'try searching a name...'} style={{ width: '65%'}} />
+                    <IconInteract onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} 
+                        icon={<FontAwesome name="user-plus" size={24} color="white" />} 
+                        style={{ padding: 15, marginStart: 'auto', marginTop: 25, marginBottom: 10, backgroundColor: theme.colors.bonasoLightAccent }} 
+                    />
+                </View>
+            </View>
         <StyledScroll>
-            <StyledText type="title">Respondents</StyledText>
-            <Input value={search} onChange={(val) => setSearch(val)} label='Search' placeholder={'try searching a name...'} />
-            <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} label='Create New Respondent' />
-            {localRespondents.length == 0 && serverRespondents.length == 0 &&
-            <StyledText>No respondents yet. Make one!</StyledText>}
             {localRespondents.length > 0 && <View>
-                <StyledText type="subtitle">Not Uploaded</StyledText>
+                <StyledText type="subtitle">Not Uploaded!</StyledText>
                 {localRespondents.map(r => (<RespondentCard key={r.local_id} respondent={r} fromServer={false} />))}
             </View>}
-            {isServerReachable && <View>
-                <StyledText type="subtitle">From Server</StyledText>
+            {(isServerReachable && !offlineMode) && <View>
                 {serverRespondents.length > 0 ? 
                     serverRespondents.map(r => (<RespondentCard key={r.id} respondent={r} fromServer={true}/>)) :
-                    <StyledText>No respondents found.</StyledText>}
+                    <StyledText type="defaultSemiBold">No respondents found...</StyledText>}
             </View>}
+            <View style={{ padding: 15 }}></View>
         </StyledScroll>
+        </View>
     )
 }
-const styles = StyleSheet.create({
-    step: {
-        padding: 15,
-        backgroundColor: theme.colors.bonasoMain,
-        marginBottom: 20,
-    },
-    textInput: {
-        backgroundColor: '#fff',
-        marginTop: 10,
-        height: 50,
-        marginBottom: 20,
-        padding: 12,
-    },
-    searchBox:{
-        position: 'absolute',
-        top: -20, // adjust as needed
-        left: 16,
-        right: 16,
-        maxHeight: 300,
-        backgroundColor: 'white',
-        borderWidth: 1,
-        zIndex: 10,
-    },
-    searchEntry: {
-        padding: 7,
-    },
-    bar:{
-        color: theme.colors.bonasoUberDarkAccent
-    },
-
-
-});

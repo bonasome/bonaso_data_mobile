@@ -3,9 +3,9 @@ import theme from "@/themes/themes"
 import { StyleSheet, TextInput, View } from "react-native"
 import StyledText from "../styledText"
 
-export default function Input({ value, onChange, label, error, placeholder='', keyboard=null}){
+export default function Input({ value, onChange, label, error, placeholder='', keyboard=null, style=null}){
     return(
-        <View style={styles.field}>
+        <View style={[styles.field, , style]}>
             <StyledText type="defaultSemiBold">{label}</StyledText>
             <TextInput style={styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'}/>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}

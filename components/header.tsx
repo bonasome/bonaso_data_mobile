@@ -25,8 +25,8 @@ export default function Header() {
             try {
                 await Respondent.upload();
                 await Interaction.upload();
-                await syncTasks();
-                await syncMeta();
+                await syncTasks(true);
+                await syncMeta(true);
             } 
             catch (err) {
                 console.error('Upload failed during sync:', err);

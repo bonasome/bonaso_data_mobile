@@ -1,13 +1,24 @@
 import saveTasks from '@/database/ORM/saveTasks';
+import { SyncRecord } from '@/database/ORM/tables/meta';
 import fetchWithAuth from './fetchWithAuth';
-
-export default async function syncTasks(){
+export default async function syncTasks(forceUpdate=false){
     try {
+        const now = new Date();
+        if(!forceUpdate){
+            console.log('checking update history')
+            const twelveHoursAgo = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+            const lastUpdated = SyncRecord.updatedAt('tasks');
+            if(lastUpdated){
+                const updatedDate = new Date(lastUpdated);
+                if(updatedDate < twelveHoursAgo) return;
+            }
+        }
+        console.log('fetching tasks...')
         const response = await fetchWithAuth('/api/manage/tasks/mobile/');
         const data = await response.json();
-        console.log(data)
         if (response.ok) {
             await saveTasks(data);
+            await SyncRecord.save({table_updated: 'tasks', updated_at: now.toISOString()});
         }
         else {
             console.error('API error', data);

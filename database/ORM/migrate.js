@@ -1,13 +1,13 @@
 import { Indicator, IndicatorPrerequisite, IndicatorSubcategory } from "./tables/indicators";
 import { Interaction, InteractionSubcategory } from "./tables/interactions";
-import { AgeRange, DisabilityType, District, KPType, Sex } from './tables/meta';
+import { AgeRange, DisabilityType, District, KPType, Sex, SyncRecord } from './tables/meta';
 import { DisabilityStatus, KPStatus, Respondent, RespondentLink } from './tables/respondents';
 import { Organization, Project, Task } from "./tables/tasks";
 
 export const models = [
     Indicator,IndicatorPrerequisite, IndicatorSubcategory, Respondent, RespondentLink, KPStatus, DisabilityStatus,
     Project, Organization, Task, Interaction, InteractionSubcategory,District, AgeRange, Sex, 
-    KPType, DisabilityType
+    KPType, DisabilityType, SyncRecord
 ]
 
 export async function migrate(models) {

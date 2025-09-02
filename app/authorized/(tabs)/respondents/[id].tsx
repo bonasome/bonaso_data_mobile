@@ -1,4 +1,5 @@
-import StyledButton from "@/components/inputs/StyledButton";
+import IconInteract from "@/components/inputs/IconInteract";
+import LoadingScreen from "@/components/Loading";
 import AddInteraction from "@/components/respondents/addInteraction";
 import Interactions from "@/components/respondents/interactions";
 import StyledScroll from "@/components/styledScroll";
@@ -7,6 +8,7 @@ import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/
 import { Respondent, RespondentLink } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { randomUUID } from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -112,38 +114,41 @@ export default function RespondentDetail(){
         value: c.cca2,       // ISO 3166-1 alpha-2 code
     }));
 
-    if(!respondent) return <View></View>
+    if(!respondent) return <LoadingScreen />
     return (
         <StyledScroll>
-            <StyledButton onPress={() => router.push('/authorized/(tabs)/respondents')} label={'Back'} />
             <View>
-                <StyledText type="subtitle">{display}</StyledText>
                 <View style={styles.section}>
+                    <View style={{ display: 'flex', flexDirection: 'row'}}>
+                    <StyledText type="subtitle">{display}</StyledText>
+                    <IconInteract onPress={goToEdit} icon={<MaterialCommunityIcons name="account-edit" size={24} color="white" />} style={{ marginStart: 'auto', padding: 0}} />
+                    </View>
                     <StyledText type="defaultSemiBold">{labels?.sex}, {labels?.age_range}</StyledText>
                     <StyledText type="defaultSemiBold">
                         {respondent?.plot_no && respondent.plot_no + ', '}{respondent?.ward && respondent?.ward+', '}
                         {respondent?.village}, {labels?.district}, {getCountryName(respondent?.citizenship)}
                     </StyledText>
+
+                    {respondent?.kp_status?.length > 0 && <View style={{ marginTop: 5}}>
+                        <StyledText type="defaultSemiBold">Key Population Status</StyledText>
+                        {labels?.kp_status?.map((kp) => (
+                            <View key={kp} style={styles.li}>
+                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                <StyledText>{kp}</StyledText>
+                            </View>
+                        ))}
+                    </View>}
+
+                    {respondent?.disability_status?.length > 0 && <View style={{ marginTop: 5}}>
+                        <StyledText type="defaultSemiBold">Disability Status</StyledText>
+                        {labels?.disability_status?.map((d) => (
+                            <View key={d} style={styles.li}>
+                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                <StyledText>{d}</StyledText>
+                            </View>
+                        ))}
+                    </View>}
                 </View>
-                {respondent?.kp_status?.length > 0 && <View style={styles.section}>
-                    <StyledText type="defaultSemiBold">Key Population Status</StyledText>
-                    {labels?.kp_status?.map((kp) => (
-                        <View key={kp} style={styles.li}>
-                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                            <StyledText>{kp}</StyledText>
-                        </View>
-                    ))}
-                </View>}
-                {respondent?.disability_status?.length > 0 && <View style={styles.section}>
-                    <StyledText type="subtitle">Disability Status</StyledText>
-                    {labels?.disability_status?.map((d) => (
-                        <View key={d} style={styles.li}>
-                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                            <StyledText>{d}</StyledText>
-                        </View>
-                    ))}
-                </View>}
-                <StyledButton onPress={goToEdit} label={'Edit Details'} />
             </View>
             <View>
                 <AddInteraction localId={localId} serverId={serverId} onSubmit={() => setRefreshKey(new Date())} />
@@ -159,7 +164,8 @@ const styles = StyleSheet.create({
     section: {
         padding: 20,
         backgroundColor: theme.colors.bonasoUberDarkAccent,
-        margin: 10,
+        marginBottom: 10,
+
     },
     ul: {
         paddingLeft: 20, // indent like <ul>

@@ -1,5 +1,6 @@
 import FormSection from '@/components/forms/FormSection';
 import StyledButton from '@/components/inputs/StyledButton';
+import LoadingScreen from '@/components/Loading';
 import StyledScroll from '@/components/styledScroll';
 import StyledText from '@/components/styledText';
 import { useConnection } from '@/context/ConnectionContext';
@@ -11,7 +12,7 @@ import theme from '@/themes/themes';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import countries from 'world-countries';
 export default function CreateRespondent() {
     //navigator the help with directions to/from
@@ -20,29 +21,35 @@ export default function CreateRespondent() {
     //connection state
     const { isServerReachable } = useConnection();
     const [existing, setExisting] = useState(null);
+    const [display, setDisplay] = useState('');
     //meta containing options/labels for certain fields
     const [meta, setMeta] = useState(null); 
     const [redirectId, setRedirectId] = useState('');
-
+    const [loading, setLoading] = useState(false);
 
     //slightly confusing, but a user can either load a profile from the device or from the server
      useEffect(() => {
         if (localId) {
             (async () => {
+                setLoading(true);
                 const found = await Respondent.find(localId, 'local_id');
                 const serialized = await found?.serialize();
                 setExisting(serialized);
                 setRedirectId(`-${localId}`);
+                setLoading(false);
+                setDisplay(serialized.is_anonymous ? `Anonymous Respondent ${serialized.local_id}` : `${serialized.first_name} ${serialized.last_name}`)
             })();
         }
         if (serverId && isServerReachable) {
             (async () => {
                 try {
+                    setLoading(true);
                     const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
                     const data = await response.json();
                     if (response.ok) {
                         setExisting(data);
                         setRedirectId(`${data.id}`);
+                        setDisplay(data.display_name);
                     } 
                     else {
                         console.error('API error', response.status);
@@ -50,6 +57,9 @@ export default function CreateRespondent() {
                 } 
                 catch (err) {
                     console.error('Error fetching respondent', err);
+                }
+                finally{
+                    setLoading(false);
                 }
             })();
         }
@@ -167,11 +177,12 @@ export default function CreateRespondent() {
         //try saving/uploading the data
         let result = null
         try{
+            setLoading(true);
             console.log('submitting data...');
             //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage
             if(serverId && isServerReachable){
                 data.kp_status_names = data.kp_status;
-                data.disability_status = data.disability_status_names;
+                data.disability_status_names = data.disability_status;
                 data.hiv_status_data = {hiv_positive: data.hiv_positive, date_positive: data.date_positive};
                 data.pregnancy_data = [{term_began: data.term_began, term_ended: data.term_ended, id: pregnancyInfo?.id ?? null}];
                 
@@ -225,7 +236,10 @@ export default function CreateRespondent() {
         }
         catch(err){
             console.error(err);
-        }   
+        } 
+        finally{
+            setLoading(false);
+        }  
     };
     const countryList = countries.map(c => ({
         label: c.name.common,
@@ -329,12 +343,14 @@ export default function CreateRespondent() {
         },
     ]
 
-    if(!meta?.sexs) return <View></View> //return nothing if the meta has not loaded
+    if(loading || !meta?.sexs) return <LoadingScreen /> //return nothing if the meta has not loaded
     return (
         <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
+            <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 20}}>
+                <StyledText type='subtitle'>{existing ? `Editing ${display}` : 'Creating New Respondent'}</StyledText>
+            </View>
             <View style={styles.form}>
-                <StyledText type='title'>Creating New Respondent</StyledText>
                 <FormSection fields={isAnon} control={control} header={'Respondent Anonymity'} />
                 {anon && <FormSection fields={anonBasic} control={control} header='Basic Information' />}
                 {!anon && <FormSection fields={notAnonBasic} control={control} header='Basic Information' />}
@@ -348,11 +364,7 @@ export default function CreateRespondent() {
                 {pregnant && <FormSection fields={pregDates} control={control} header='Pregnancy Dates (for most recent/active term)'/>}
                 {!anon && <FormSection fields={contact} control={control} header='Contact Information'/> }
 
-                <TouchableOpacity style={styles.button} onPress={handleSubmit(onSubmit, (formErrors) => {
-                    console.log("Validation errors:", formErrors);
-                })}>
-                    <Text style={styles.buttonText}>Submit</Text>
-                </TouchableOpacity>
+                <StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {console.log("Validation errors:", formErrors);})} label={'Submit'} />
 
                 <StyledButton onPress={() => {existing ? router.push(`/authorized/(tabs)/respondents/${redirectId}`) :
                     router.push(`/authorized/(tabs)/respondents`)}} label={'Cancel'} />
@@ -371,54 +383,9 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.bonasoDarkAccent,
     },
     form:{
-        marginTop: 30,
-    },
-    field: {
-        backgroundColor: theme.colors.bonasoMain,
-        padding: 20,
-        margin: 7,
-    },
-    fieldHeader:{
-        textAlign: 'center',
-    },
-    errorText:{
-        color: theme.colors.errorText,
-        backgroundColor: theme.colors.errorBg,
-        padding: 5,
-        margin: 10,
-        borderWidth: 4,
-        borderColor: theme.colors.error,
-    },
-    input: {
-        padding: 15,
-        backgroundColor: '#fff',
-    },
-    picker: {
-        borderRadius: 8,
-        backgroundColor: theme.colors.bonasoDarkAccent,
-        marginBottom: 20,
-    },
-    container: {
-        padding: 20,
-        backgroundColor: '#fff',
-        flex: 1,
-        justifyContent: 'center',
-    },
-    label: {
-        fontSize: 16,
-        marginVertical: 8,
-    },
-    button: {
-        backgroundColor: theme.colors.bonasoLightAccent,
-        padding: 12,
-        marginTop: 20,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: 'bold',
+        marginTop: 10,
     },
     spacer: {
-        padding: 60,
+        padding: 30,
     }
 });
