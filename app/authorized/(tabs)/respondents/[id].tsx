@@ -4,6 +4,8 @@ import AddInteraction from "@/components/respondents/addInteraction";
 import Interactions from "@/components/respondents/interactions";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
+import { useAuth } from "@/context/AuthContext";
+import { useConnection } from "@/context/ConnectionContext";
 import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/tables/meta";
 import { Respondent, RespondentLink } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
@@ -16,24 +18,36 @@ import { StyleSheet, View } from "react-native";
 import countries from "world-countries";
 
 export default function RespondentDetail(){
-    const router = useRouter();
-    const { id } = useLocalSearchParams();
-    const [respondent, setRespondent] = useState(null);
-    const [labels, setLabels] = useState({});
-    const [localId, setLocalId] = useState(null);
-    const [serverId, setServerId] = useState(null);
-    
-    const [refreshKey, setRefreshKey] = useState(new Date());
+    /*
+    Screen that displays detailed information about a respondent. Also allows for the user to create interactions
+    for the respondent and view/edit past interactions (locally or from server). 
 
+    Takes an id param. Local IDs (i.e., not in the server) must be prefixed with a  '-'.
+    */
+    const router = useRouter();
+    const { id } = useLocalSearchParams(); //what ID to fetch details about, if local UUID, prefix with a '-'
+
+    const { isServerReachable } = useConnection();
+    const { offlineMode } = useAuth();
+
+    const [respondent, setRespondent] = useState(null); //stores details
+    const [labels, setLabels] = useState({}); //stores meta labels for converting db values to readable labels
+    const [localId, setLocalId] = useState(null); //local uuid
+    const [serverId, setServerId] = useState(null); //server ID
+    
+    const [refreshKey, setRefreshKey] = useState(new Date()); //update trigger for when interactions are added
+
+    //get or create a local ID for this respondent
     useEffect(() => {
         const getLocalId = async () => {
             let sid = id.startsWith("-") ? null : id;
-            let lid = id.startsWith("-") ? id.slice(1) : null;
+            let lid = id.startsWith("-") ? id.slice(1) : null; //chars after '-'
+            //if this respondent is not in the local DB, create a local UUID for them used when creating interactions
             if(sid && !lid){
                 const link = await RespondentLink.find(sid, 'server_id');
-                console.log(link)
-                if(link) lid = link.uuid;
+                if(link) lid = link.uuid; //set local ID if it exists
                 else{
+                    //if not in local DB, create a new link that can be referenced
                     const newUUID = randomUUID();
                     await RespondentLink.save({ server_id: sid, uuid: newUUID });
                     lid = newUUID;
@@ -45,16 +59,18 @@ export default function RespondentDetail(){
         getLocalId();
     }, [id]);
 
-    //redirect to create page
+    //redirect to respondent for  for editing details
     function goToEdit(){
         router.push({
             pathname: 'authorized/(tabs)/respondents/forms/respondentForm',
-            params: serverId ? { serverId: serverId } : {localId: localId}
+            params: serverId ? { serverId: serverId } : {localId: localId} //pass serverID first so details are not stored on device
         })
     }
     
+    //try to get respondent details
     useEffect(() => {
-        if (serverId) {
+        //if online and has a serverId, try to get details directly from the server
+        if (serverId && isServerReachable && !offlineMode) {
             (async () => {
                 try {
                     const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
@@ -71,6 +87,7 @@ export default function RespondentDetail(){
                 }
             })();
         }
+        //otherwise look locally
         else if (localId) {
             (async () => {
                 const found = await Respondent.find(localId, 'local_id');
@@ -79,13 +96,15 @@ export default function RespondentDetail(){
             })();
         }
     }, [localId, serverId]);
-    console.log('local', localId)
+
+    //helper function to get display name
     const display = useMemo(() => {
         if(!respondent) return '';
         return serverId ? respondent.display_name : 
             respondent.is_anonymous ? `Anonymous Respondent ${respondent.local_id}` : `${respondent.first_name} ${respondent.last_name}`;
     }, [respondent])
 
+    //convert respondent DB values to readable labels based on the locally stored respondents meta
     useEffect(() => {
         const getLabels = async() => {
             const ar = await AgeRange.getLabel(respondent?.age_range);
@@ -104,16 +123,12 @@ export default function RespondentDetail(){
         getLabels();
     }, [respondent]);
 
+    //convert 2 character country code to full name
     function getCountryName(alpha2) {
         const country = countries.find(c => c.cca2 === alpha2.toUpperCase());
         return country ? country.name.common : null;
     }
-
-    const countryList = countries.map(c => ({
-        label: c.name.common,
-        value: c.cca2,       // ISO 3166-1 alpha-2 code
-    }));
-
+    
     if(!respondent) return <LoadingScreen />
     return (
         <StyledScroll>

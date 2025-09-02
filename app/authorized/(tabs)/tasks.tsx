@@ -56,11 +56,11 @@ export default function Tasks() {
     /*
     Component that displays a list of tasks from the local database. 
     */
-   const { offlineMode } = useAuth();
+    const { offlineMode } = useAuth(); //check if user has tokens
     const { isServerReachable } = useConnection();
-    const [tasks, setTasks] = useState([]);
+    const [tasks, setTasks] = useState([]); //tasks to display
 
-    //fetch the tasks from the tb
+    //fetch the tasks from the db
     useEffect(() => {
         const loadTasks = async () => {
             if (isServerReachable && !offlineMode){

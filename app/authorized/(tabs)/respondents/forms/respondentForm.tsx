@@ -14,32 +14,44 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import countries from 'world-countries';
+
+
 export default function CreateRespondent() {
+    /*
+    Form that allows a user to create or edit a respondent, either locally or from the server. 
+    Optionally takes either a localId or serverId URL param for editing existing values. If a serverId is 
+    provided and the user is online, form changes go directly to the server. If localId is provided, changes
+    will be saved locally and uploaded when there is connection.  
+    */
     //navigator the help with directions to/from
     const router = useRouter();
     const { localId, serverId } = useLocalSearchParams();
     //connection state
     const { isServerReachable } = useConnection();
+    //existing information
     const [existing, setExisting] = useState(null);
-    const [display, setDisplay] = useState('');
+    const [display, setDisplay] = useState(''); //name/value to display
+    const [redirectId, setRedirectId] = useState(''); //id to use when redirecting to detail page
     //meta containing options/labels for certain fields
     const [meta, setMeta] = useState(null); 
-    const [redirectId, setRedirectId] = useState('');
+    
     const [loading, setLoading] = useState(false);
 
-    //slightly confusing, but a user can either load a profile from the device or from the server
+    //load existing data (if provided)
      useEffect(() => {
+        //if localId is provided, search the local DB for the value
         if (localId) {
             (async () => {
                 setLoading(true);
                 const found = await Respondent.find(localId, 'local_id');
                 const serialized = await found?.serialize();
                 setExisting(serialized);
-                setRedirectId(`-${localId}`);
+                setRedirectId(`-${localId}`); //redirect based on localId
                 setLoading(false);
-                setDisplay(serialized.is_anonymous ? `Anonymous Respondent ${serialized.local_id}` : `${serialized.first_name} ${serialized.last_name}`)
+                setDisplay(serialized.is_anonymous ? `Anonymous Respondent ${serialized.local_id}` : `${serialized.first_name} ${serialized.last_name}`);
             })();
         }
+        //if serverId and user is online, check the server for the respondent
         if (serverId && isServerReachable) {
             (async () => {
                 try {
@@ -48,7 +60,7 @@ export default function CreateRespondent() {
                     const data = await response.json();
                     if (response.ok) {
                         setExisting(data);
-                        setRedirectId(`${data.id}`);
+                        setRedirectId(`${data.id}`); //redirect to detail page based on serverId
                         setDisplay(data.display_name);
                     } 
                     else {
@@ -88,12 +100,16 @@ export default function CreateRespondent() {
         };
     }, []);
 
+    //helper function to load most recent pregnancy data (since unlike the website, the app only tracks the most recent pregnancy)
     const pregnancyInfo = useMemo(() => {
+        //if no pregnnacy data, return nothing
         if(!serverId || !existing) return null;
         if(!existing?.pregnancies || existing?.pregnancies?.length == 0) return null
+        //find most recent pregnancy by term_began
         let most_recent = existing?.pregnancies?.reduce((latest, current) => {
-            return new Date(current.date1) > new Date(latest.date1) ? current : latest;
+            return new Date(current.term_began) > new Date(latest.term_began) ? current : latest;
         });
+        //set existing date values based on this
         if(most_recent.term_began) most_recent.term_began = new Date(most_recent.term_began);
         if(most_recent.term_ended) most_recent.term_ended = new Date(most_recent.term_ended);
         return most_recent
@@ -135,12 +151,12 @@ export default function CreateRespondent() {
         }
     }, [existing]);
 
-    //set up the form
+    //constrct RHF variables
     const { control, handleSubmit, setValue, getValues, watch, reset, formState: { errors } } = useForm({ defaultValues });
 
     //handle submission
     const onSubmit = async (data) => {
-        //in case of switching, set stale fields to null
+        //in case of switching to or from anon, set stale fields to null
         if (data.is_anonymous) {
             data.first_name = null;
             data.last_name = null;
@@ -152,22 +168,25 @@ export default function CreateRespondent() {
             data.phone_number = null;
         } 
         else {
+            //if not anon, validate DOB
             if (!data.dob || new Date(data.dob) > new Date()) {
                 alert("Date of birth is invalid.");
                 return;
             }
-            data.age_range = null; //dob is the highest truth
-            data.dob = checkDate(data.dob);
+            data.age_range = null; //dob is the highest truth, age_range will be autocalced from that
+            data.dob = checkDate(data.dob); //will return ISO string if default is ISO string or if date value is passed
             if(!data.dob){
                  alert('Date of Birth is Required.');
                 return
             }
         }
+        //check date positive date and return ISO string
         data.date_positive = checkDate(data.date_positive);
         if(data.hiv_positive && !data.date_positive){
             alert('A valid date positive is Required.');
             return;
         }
+        //check pregnancy dates and return ISO strings
         data.term_began = checkDate(data.term_began)
         if(data.is_pregnant && !data.term_began){
             alert('A valid term began date is Required.'); 
@@ -175,12 +194,13 @@ export default function CreateRespondent() {
         }
         data.term_ended = checkDate(data.term_ended); //this is nominally optional
         //try saving/uploading the data
-        let result = null
+        let result = null; //placeholder for saved id
         try{
             setLoading(true);
             console.log('submitting data...');
-            //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage
+            //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage on device
             if(serverId && isServerReachable){
+                //convert fields to how the backend expects them
                 data.kp_status_names = data.kp_status;
                 data.disability_status_names = data.disability_status;
                 data.hiv_status_data = {hiv_positive: data.hiv_positive, date_positive: data.date_positive};
@@ -195,7 +215,7 @@ export default function CreateRespondent() {
                     });
                     const returnData = await response.json();
                     if(response.ok){
-                        router.push(`/authorized/(tabs)/respondents/${returnData.id}`) //redirect to the previous page with the id from the server
+                        router.push(`/authorized/(tabs)/respondents/${returnData.id}`) //redirect to the respondent detail page with the id from the server
                     }
                     else{
                         console.error(returnData);
@@ -207,9 +227,10 @@ export default function CreateRespondent() {
             }
             else if(serverId && !isServerReachable){
                 alert('You are currently offline. Please reconnect to make edits.');
+                return;
             }
+            //if respondent is not in server, create or update local record
             else{
-                //if it exists i.e., a local ID param was passed, save over the old result, else create a new record
                 let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
                 //if connected, try to upload the data
                 if (isServerReachable) {
@@ -227,6 +248,7 @@ export default function CreateRespondent() {
                         console.error('Upload failed', err);
                     }
                 }
+                //otherwise alert the user the item was saved and redirect to the detail page
                 else{
                     router.push(`/authorized/(tabs)/respondents/-${result}`);
                     alert('Respondent saved. Will sync next time connection is found.');
@@ -241,11 +263,14 @@ export default function CreateRespondent() {
             setLoading(false);
         }  
     };
+
+    //create array for citizenship picker
     const countryList = countries.map(c => ({
         label: c.name.common,
         value: c.cca2,       // ISO 3166-1 alpha-2 code
     }));
 
+    //set existing values once existing has loaded
     useEffect(() => {
         if (existing) {
             reset(defaultValues);
@@ -254,7 +279,7 @@ export default function CreateRespondent() {
 
     //anon watch to show or hide specific fields based on anon status
     const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false });
-    //show extra date fields if hiv/pregnant
+    //show extra date fields if hiv positive/pregnant
     const hiv = useWatch({ control, name: 'hiv_positive', defaultValue: false });
     const pregnant = useWatch({ control, name: 'is_pregnant', defaultValue: false });
     //anon toggle
@@ -343,7 +368,7 @@ export default function CreateRespondent() {
         },
     ]
 
-    if(loading || !meta?.sexs) return <LoadingScreen /> //return nothing if the meta has not loaded
+    if(loading || !meta?.sexs) return <LoadingScreen /> //return loading if the meta has not loaded or existing hasn't loaded (assuming id was provided)
     return (
         <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>

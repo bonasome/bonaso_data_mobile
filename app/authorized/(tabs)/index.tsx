@@ -3,6 +3,8 @@ import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { migrate, models } from '@/database/ORM/migrate';
+import { Interaction } from "@/database/ORM/tables/interactions";
+import { Respondent } from "@/database/ORM/tables/respondents";
 //import resetDatabase from '@/database/resetDB';
 import fetchWithAuth from "@/services/fetchWithAuth";
 import { getSecureItem } from "@/services/secureStorage";
@@ -102,12 +104,16 @@ export default function Index() {
         setDB();
     }, []);
 
-    //if connected and have tokens, try syncing the meta and updating tasks
+    //if connected and have tokens, try syncing device
     useEffect(() => {
         if(!isServerReachable || offlineMode) return;
         const update = async () => {
+            //sync records if more tha  12 hours old
             syncTasks();
             syncMeta();
+            //look for any unsynced respondents/interactions
+            await Respondent.upload();
+            await Interaction.upload();
         }
         update();
     }, []);
