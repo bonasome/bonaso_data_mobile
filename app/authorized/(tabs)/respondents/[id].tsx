@@ -170,6 +170,7 @@ export default function RespondentDetail(){
             </View>
             <View>
                 <Interactions localId={localId} serverId={serverId} updateTrigger={refreshKey} />
+                <View style={{ padding: 30 }}></View>
             </View>
         </StyledScroll>
     )

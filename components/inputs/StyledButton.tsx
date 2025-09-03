@@ -1,9 +1,9 @@
 import theme from "@/themes/themes";
 import { StyleSheet, TouchableOpacity } from "react-native";
 import StyledText from "../styledText";
-export default function StyledButton({ onPress, label, disabled=false}){
+export default function StyledButton({ onPress, label, disabled=false, style=null}){
     return(
-        <TouchableOpacity onPress={onPress} style={disabled ? styles.disabled : styles.button} disabled={disabled}>
+        <TouchableOpacity onPress={onPress} style={[disabled ? styles.disabled : styles.button, style]} disabled={disabled}>
             <StyledText type="defaultSemiBold" style={styles.buttonText}>{label}</StyledText>
         </TouchableOpacity>
     )

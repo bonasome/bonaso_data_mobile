@@ -1,7 +1,7 @@
 import FormSection from "@/components/forms/FormSection";
 import StyledButton from "@/components/inputs/StyledButton";
+import LoadingScreen from "@/components/Loading";
 import StyledScroll from "@/components/styledScroll";
-import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
@@ -30,28 +30,30 @@ export default function EditInteraction(){
     const [redirectId, setRedirectId] = useState(''); //what id to use when redirecting the user back to the respondent detail page
     
     const [existing, setExisting] = useState(null); //existing record
-
+    const [loading, setLoading] = useState(false);
     //fetch the existing record
     useEffect(() => {
         //if local ID param is passed, find it from the local database
         if (localId) {
             (async () => {
+                setLoading(true);
                 const found = await Interaction.find(localId);
-                console.log(found)
                 const serialized = await found?.serialize();
                 setExisting(serialized);
                 setRedirectId(`-${serialized.respondent_uuid}`); //set redirect ID to the interaction's respondent
+                setLoading(false);
             })();
         }
         //if server ID is passed, 
         if(serverId) {
             (async () => {
                 try {
+                    setLoading(true);
                     const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`);
                     const data = await response.json();
                     if (response.ok) {
                         setExisting(data);
-                        setRedirectId(data.respondent.id); //set redirect ID to the interaction's respondent
+                        setRedirectId(data.respondent); //set redirect ID to the interaction's respondent
                     } 
                     else {
                         console.error('Server error:', response.status);
@@ -59,6 +61,9 @@ export default function EditInteraction(){
                 } 
                 catch (err) {
                     console.error('Error fetching respondent', err);
+                }
+                finally{
+                    setLoading(false);
                 }
             })();
         }
@@ -95,8 +100,9 @@ export default function EditInteraction(){
         //if online, try to upload changes directly
         if(serverId && isServerReachable && !offlineMode){
             try{
+                setLoading(true);
                 if(data.numeric_component == '') data.numeric_component = null;
-                data.subcategories_data = data.subcategory_data;
+                data.subcategories_data = existing?.task?.indicator?.require_numeric ? data.subcategory_data : data.subcategory_data?.map(cat => ({id:null, subcategory:{id: cat}, numeric_component: null}));
                 console.log('uploading interaction', data);
                 const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`, {
                     method: 'PATCH',
@@ -111,6 +117,9 @@ export default function EditInteraction(){
             catch(err){
                 console.error(err);
             }
+            finally{
+                setLoading(false);
+            }
         }
         //if connection was lost while editing, throw an error to alert the user
         else if(serverId && !isServerReachable){
@@ -120,6 +129,7 @@ export default function EditInteraction(){
         //try saving and then uploading the data
         else{
             try{
+                setLoading(true);
                 //save locally
                 console.log('submitting data...', data);
                 result = await Interaction.save(data, existing?.id); //save locally first
@@ -145,6 +155,9 @@ export default function EditInteraction(){
             catch(err){
                 console.error(err);
             }   
+            finally{
+                setLoading(true);
+            }
         }
         //if not connected/uploaded, redirect using the local id
         router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
@@ -153,9 +166,9 @@ export default function EditInteraction(){
 
     //prepare existing subcategory data based on whether a number is required
     const subcatData = useMemo(() => {
-        if(!existing || !existing?.subcategory_data || existing?.subcategory_data?.length === 0) return [];
+        if(!existing || !existing?.subcategories || existing?.subcategories?.length === 0) return [];
         if(existing?.task?.indicator?.require_numeric){
-            return existing?.subcategory_data?.map(cat => (
+            return existing?.subcategories?.map(cat => (
                 {
                     id: cat?.id, 
                     subcategory:{'id': cat?.subcategory?.id}, 
@@ -164,7 +177,7 @@ export default function EditInteraction(){
             )) ?? []
         }
         else{
-            return existing?.subcategory_data?.map(cat => cat?.subcategory?.id) ?? []
+            return existing?.subcategories?.map(cat => cat?.subcategory?.id) ?? [];
         }
     }, [existing]);
 
@@ -173,8 +186,9 @@ export default function EditInteraction(){
         return {
             interaction_date: existing?.interaction_date ?? null,
             interaction_location: existing?.interaction_location ?? '',
-            numeric_component: existing?.numeric_component ?? '',
-            subcategory_data: serverId ? existing?.subcategories : subcatData,
+            numeric_component: existing?.numeric_component?.toString() ?? '',
+            subcategory_data: subcatData,
+            comments: existing?.comments ?? '',
         }
     }, [existing]); 
 
@@ -187,36 +201,36 @@ export default function EditInteraction(){
             reset(defaultValues);
         }
     }, [existing, reset, defaultValues]);
-
+    console.log(existing)
     const info = [
         {name: 'interaction_date', label: 'Date of Interaction', type: 'date', rules: {required: 'Required'}},
         {name: 'interaction_location', label: 'Interaction Location', type: 'text', rules: {required: 'Required', maxLength: { value: 255, message: 'Maximum length is 255 characters.'}}},
     ]
     //only show if require_numeric is true and there are no subcategories
     const numeric = [
-        {name: 'numeric_component', label: 'Number Distributed', type: 'number', rules: {required: 'Required'}},
+        {name: 'numeric_component', label: 'Number Distributed', type: 'numeric', rules: {required: 'Required'}},
     ]
     //show if subcategories
     const subcats = [
-        {name: 'subcategory_data', label: 'Subcategories',  type: `${existing?.task?.indicator?.require_numeric ? 'multinumber' : 'multicheckbox'}`,
-            options: existing?.task?.indicator?.subcategories
+        {name: 'subcategory_data', label: 'Subcategories',  type: `${existing?.task?.indicator?.require_numeric ? 'multinumber' : 'multiselect'}`,
+            options: existing?.task?.indicator?.subcategories, valueField: 'id', labelField: 'name',
         }
     ]
+    const comments = [
+        {name: 'comments', label: 'Comments', type: 'textarea'}
+    ]
 
+    if(loading) return <LoadingScreen />
     return (
-        <KeyboardAvoidingView
-                        style={styles.bg}
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    >
+        <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <StyledScroll>
                 <View style={styles.form}>
-                    <StyledText type='title'>Editing Interaction</StyledText>
-                    <FormSection fields={info} control={control} header={'Respondent Anonymity'} />
+                    <FormSection fields={info} control={control} header={'Editing Interaction'} />
                     {existing?.task?.indicator?.require_numeric && existing?.task?.indicator?.subcategories?.length == 0 &&
-                        <FormSection fields={numeric} control={control} header='Basic Information' />}
+                        <FormSection fields={numeric} control={control} />}
                     {existing?.task?.indicator?.subcategories?.length > 0 && 
-                        <FormSection fields={subcats} control={control} header='Basic Information' />}
-
+                        <FormSection fields={subcats} control={control} />}
+                    <FormSection fields={comments} control={control} />
                     < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
                             console.log("Validation errors:", formErrors);
                         })} label={'Submit'} 

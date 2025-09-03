@@ -7,7 +7,7 @@ export default function Input({ value, onChange, label, error, placeholder='', k
     return(
         <View style={[styles.field, , style]}>
             <StyledText type="defaultSemiBold">{label}</StyledText>
-            <TextInput style={styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'}/>
+            <TextInput style={keyboard == 'textarea' ? styles.textarea : styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'} multiline={keyboard=='textarea'}/>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}
         </View>
     )
@@ -20,6 +20,11 @@ const styles = StyleSheet.create({
     input: {
         padding: 15,
         backgroundColor: '#fff',
+    },
+    textarea: {
+        padding: 15,
+        backgroundColor: '#fff',
+        height: 150,
     },
     errorText:{
         color: theme.colors.errorText,

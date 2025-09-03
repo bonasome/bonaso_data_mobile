@@ -52,8 +52,7 @@ export class Indicator extends BaseModel {
         if(this.match_subcategories_to){
             const subcats = await IndicatorSubcategory.filter({indicator: this.match_subcategories_to});
             const subcatsArray = subcats.map(cat => ({id: cat.id, name: cat.name}));
-            baseSerialized.subcategories_data = subcatsArray;
-            console.log(baseSerialized)
+            baseSerialized.subcategories = subcatsArray;
         }
         return baseSerialized;
     }

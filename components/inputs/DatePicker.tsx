@@ -11,23 +11,25 @@ export default function DatePicker({ value, onChange, error, label, name }){
     return(
         <View>
             <StyledText type="defaultSemiBold">{label}</StyledText>
-            <TouchableOpacity onPress={() => setShowDate(true)} style={styles.button}>
-                <StyledText style={styles.buttonText} type="defaultSemiBold">
-                {value ? new Date(value).toDateString() : 'Select date'}
-                </StyledText>
-            </TouchableOpacity>
-            {showDate && (
-                <DateTimePicker
-                value={new Date(value)}
-                mode="date"
-                display="default"
-                onChange={(_, selectedDate) => {
-                    setShowDate(false);
-                    if (selectedDate) onChange(selectedDate);
-                }}
-                />
-            )}
-            {value && <StyledButton onPress={() => onChange(null)} label={'Clear Date'} />}
+            <View style={{ display: 'flex', flexDirection: 'row'}}>
+                <TouchableOpacity onPress={() => setShowDate(true)} style={styles.button}>
+                    <StyledText style={styles.buttonText} type="defaultSemiBold">
+                    {value ? new Date(value).toDateString() : 'Select date'}
+                    </StyledText>
+                </TouchableOpacity>
+                {showDate && (
+                    <DateTimePicker
+                    value={new Date(value)}
+                    mode="date"
+                    display="default"
+                    onChange={(_, selectedDate) => {
+                        setShowDate(false);
+                        if (selectedDate) onChange(selectedDate);
+                    }}
+                    />
+                )}
+                {value && <StyledButton onPress={() => onChange(null)} label={'Clear Date'} style={{ marginStart: 'auto' }} />}
+            </View>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}
         </View>
     )

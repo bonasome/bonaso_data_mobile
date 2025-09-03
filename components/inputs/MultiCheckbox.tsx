@@ -6,7 +6,7 @@ import StyledText from '../styledText';
 
 export default function MultiCheckbox({ options, value, label, onChange, error, valueField='value', labelField='label' }) {
     const toggleValue = (val) => {
-        const updated = value.includes(val)
+        const updated = value?.includes(val)
             ? value.filter(v => v !== val)
             : [...value, val];
         onChange(updated);
@@ -16,7 +16,7 @@ export default function MultiCheckbox({ options, value, label, onChange, error, 
         <View style={styles.container}>
             <StyledText type='defaultSemiBold'>{label}</StyledText>
             {options.map(item => {
-                const checked = value.includes(item[valueField]);
+                const checked = value?.includes(item[valueField]);
                 return (
                     <TouchableOpacity
                         key={item[valueField]}

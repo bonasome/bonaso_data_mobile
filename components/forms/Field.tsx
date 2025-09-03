@@ -11,7 +11,7 @@ import SimplePicker from '../inputs/SimplePicker';
 import StyledText from '../styledText';
 //a singular field/question in a form. can support many different data types
 export default function Field({ field, control }) {
-  const { type, name, rules, label, options, placeholder } = field;
+  const { type, name, rules, label, options, placeholder, labelField, valueField } = field;
     //IndexComponent is the model select component, label/valueField are used to when providing maps (if not names label/valuve)
     //include/exclude params for filtering model index components
   return (
@@ -31,9 +31,10 @@ export default function Field({ field, control }) {
 
                 case "email-address":
                 case 'phone-pad':
-                case "number":
+                case "numeric":
                 case "text":
-                    return <Input {...commonProps} placeholder={placeholder} />
+                case "textarea":
+                    return <Input {...commonProps} keyboard={type} placeholder={placeholder} />
                 case 'date':
                     return <DatePicker {...commonProps} />  
                 case 'select': //single select, radio is preferred unless the options are many
@@ -44,7 +45,7 @@ export default function Field({ field, control }) {
                 case "checkbox": //toggle for true/false or switchpaths
                     return <Checkbox  {...commonProps} />;
                 case 'multiselect': //multiselect from checkbox
-                    return <MultiCheckbox {...commonProps} options={options} />
+                    return <MultiCheckbox {...commonProps} options={options} valueField={valueField} labelField={labelField}/>
                 case 'multinumber': //multiselect from checkbox
                     return <MultiCheckboxNum {...commonProps} options={options} />
                     

@@ -5,6 +5,7 @@ import { Task } from "@/database/ORM/tables/tasks";
 import fetchWithAuth from '@/services/fetchWithAuth';
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
@@ -13,7 +14,6 @@ import IconInteract from "../inputs/IconInteract";
 import StyledButton from "../inputs/StyledButton";
 import LoadingSpinner from "../LoadingSpinner";
 import { CommentModal, NumberModal, SubcategoryModal } from "./addInteractionModals";
-
 
 export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     /*
@@ -46,6 +46,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     const [tasks, setTasks] = useState([]);
     //custom page tracker for paginating tasks (default length of 10)
     const [page, setPage] = useState(0); 
+
+    const [expanded, setExpanded] = useState(false);
     //tracks if tasks are loding
     const [loading, setLoading] = useState(false);
 
@@ -89,8 +91,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 let isValid = false; //helper to track if a prereq is found
 
                 //first check tasks in the local selected array
-                const inBatch = selected.filter(t => t?.task?.indicator.id.toString() === requiredTask?.indicator.id.toString())
-                if (inBatch.length > 0) {
+                const inBatch = selected.find(t => t?.task?.indicator.id.toString() === requiredTask?.indicator.id.toString());
+                if (inBatch) {
                     isValid = true;
                     //if found and this prereq is supposed to match subcategories, update allowed subcategories
                     if(task?.indicator?.match_subcategories_to === prereq.indicator.id){
@@ -102,13 +104,13 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 //if not found in batch, try to find something offline
                 if (!isValid){
                     if(isServerReachable && serverId){
-                        const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}&task_indicator=${prereq.id}&before=${doi}`);
-                        const data = await response.json()
+                        const response = await fetchWithAuth(`/api/record/interactions/?respondent=${serverId}&indicator=${prereq.indicator.id}&end=${doi.toISOString().split('T')[0]}`);
+                        const data = await response.json();
                         if(data.results.length > 0){
-                            const validPastInt = data.results.find(inter => inter?.task?.indicator?.id == prereq.id);
+                            const validPastInt = data.results.find(inter => inter?.task?.indicator?.id == prereq.indicator.id);
                             if (validPastInt && new Date(validPastInt.interaction_date) <= new Date(doi)) {
                                 isValid=true //if found, we're good. Just like above, limit allowedSubcats if applicable
-                                if(task.indicator.match_subcategories_to === prereq.id){
+                                if(task.indicator.match_subcategories_to === prereq.indicator.id){
                                     setAllowedSubcats(prev=> ({...prev, [task.id]: validPastInt.subcategories.map((cat) => ({id: cat.subcategory.id, name: cat.subcategory.name}))}));
                                 }
                             }
@@ -299,63 +301,67 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
             />}
 
             <View style={styles.section}>
-                <StyledText type='subtitle'>Create New Interactions</StyledText>
-                <StyledText type='defaultSemiBold'>Date</StyledText>
-                <View style={styles.date}>
-                    <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
-                        <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
-                    </TouchableOpacity>
-                    {showDate && (
-                    <DateTimePicker
-                        value={doi}
-                        mode="date"
-                        display="default"
-                        onChange={onChangeDate}
-                    />
-                    )}
-                </View>
-                <StyledText type='defaultSemiBold'>Location</StyledText>
-                <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
-
-                <StyledText type='defaultSemiBold'>Tap on the tasks below to add them to this interaction...</StyledText>
-                {tasksToMap.length > 0 && tasksToMap.map((task) => {
-                    const exists = selected.find(s => s.id === task.id);
-                    if(!exists) return <StyledButton label={task?.display_name} onPress={() => handlePress(task)} />
-                    return(
-                        <TouchableOpacity key={task.id} style={styles.selectedCard} onPress={() => handlePressAgain(exists)}>
-                            <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.display_name}</StyledText>
-
-                            {exists?.subcategories_data && exists?.subcategories_data.map((cat) => (
-                                <View key={cat.subcategory.id} style={styles.li}>
-                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                    <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
-                                </View>
-                            ))}
-
-                            {exists?.numeric_component && <View style={styles.li}>
-                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                <StyledText>{exists.numeric_component} </StyledText>
-                            </View>}
-
-                            <IconInteract onPress={() => {setShowComments(true); setModalTask(exists)}} icon={<MaterialCommunityIcons name="comment-plus" size={24} color="white" />} />    
-                            <StyledText type="defaultSemiBold">Comments:</StyledText>
-                            <StyledText>{exists?.comments == '' ? 'No Comments' : `${exists?.comments}`}</StyledText>
-                        
+                <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ display: 'flex', flexDirection: 'row', marginBottom: 10 }}>
+                    <StyledText type="subtitle">Create New Interactions</StyledText>
+                    {expanded ? <FontAwesome name="arrow-circle-o-up" size={24} color="white" style={{marginLeft: 'auto'}}/> : <FontAwesome name="arrow-circle-o-down" size={24} color="white" style={{marginLeft: 'auto'}}/>}
+                </TouchableOpacity>
+                {expanded && <View>
+                    <StyledText type='defaultSemiBold'>Date</StyledText>
+                    <View style={styles.date}>
+                        <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
+                            <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
                         </TouchableOpacity>
-                    )
-                })}
-                {/* Small custom pagination system */}
-                {tasks.length > 10 && <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', marginBottom: 30}}>
-                    <StyledButton onPress={() => setPage(prev => prev - 1)} label='Previous' disabled={page == 0} />
-                    <View style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', marginStart: 20, marginEnd: 20}}>
-                        <StyledText>Page</StyledText>
-                        <StyledText>{page+1} of {Math.ceil(tasks.length/10)}</StyledText>
+                        {showDate && (
+                        <DateTimePicker
+                            value={doi}
+                            mode="date"
+                            display="default"
+                            onChange={onChangeDate}
+                        />
+                        )}
                     </View>
-                    <StyledButton onPress={() => setPage(prev => prev + 1)} label='Next' disabled={page == (Math.ceil(tasks.length/10)-1)} />
+                    <StyledText type='defaultSemiBold'>Location</StyledText>
+                    <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
+
+                    <StyledText type='defaultSemiBold'>Tap on the tasks below to add them to this interaction...</StyledText>
+                    {tasksToMap.length > 0 && tasksToMap.map((task) => {
+                        const exists = selected.find(s => s.id === task.id);
+                        if(!exists) return <StyledButton label={task?.display_name} onPress={() => handlePress(task)} />
+                        return(
+                            <TouchableOpacity key={task.id} style={styles.selectedCard} onPress={() => handlePressAgain(exists)}>
+                                <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.display_name}</StyledText>
+
+                                {exists?.subcategories_data && exists?.subcategories_data.map((cat) => (
+                                    <View key={cat.subcategory.id} style={styles.li}>
+                                        <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                        <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
+                                    </View>
+                                ))}
+
+                                {exists?.numeric_component && <View style={styles.li}>
+                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                    <StyledText>{exists.numeric_component} </StyledText>
+                                </View>}
+
+                                <IconInteract onPress={() => {setShowComments(true); setModalTask(exists)}} icon={<MaterialCommunityIcons name="comment-plus" size={24} color="white" />} />    
+                                <StyledText type="defaultSemiBold">Comments:</StyledText>
+                                <StyledText>{exists?.comments == '' ? 'No Comments' : `${exists?.comments}`}</StyledText>
+                            
+                            </TouchableOpacity>
+                        )
+                    })}
+                    {/* Small custom pagination system */}
+                    {tasks.length > 10 && <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', marginBottom: 30}}>
+                        <StyledButton onPress={() => setPage(prev => prev - 1)} label='Previous' disabled={page == 0} />
+                        <View style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', marginStart: 20, marginEnd: 20}}>
+                            <StyledText>Page</StyledText>
+                            <StyledText>{page+1} of {Math.ceil(tasks.length/10)}</StyledText>
+                        </View>
+                        <StyledButton onPress={() => setPage(prev => prev + 1)} label='Next' disabled={page == (Math.ceil(tasks.length/10)-1)} />
+                    </View>}
+                    <StyledButton onPress={handleSubmit} label='Press Here to Save' disabled={(selected.length == 0 || location == '' || !doi)} />
                 </View>}
-                <StyledButton onPress={handleSubmit} label='Press Here to Save' disabled={(selected.length == 0 || location == '' || !doi)} />
             </View>
-            
         </View>
     )
 }
@@ -376,17 +382,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         textAlign: 'center',
     },
-    searchEntry: {
-        padding: 7,
-    },
     date:{
         flexDirection: 'row',
-    },
-    card:{
-        padding: 10,
-        marginTop: 10,
-        marginBottom: 10,
-        backgroundColor: theme.colors.bonasoLightAccent,
     },
     selectedCard:{
         padding: 30,
@@ -411,16 +408,6 @@ const styles = StyleSheet.create({
         marginTop: 30,
         marginBottom: 30,
         width: 250,
-        backgroundColor: '#fff',
-    },
-    container: { marginVertical: 10 },
-    label: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-    checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    checkboxLabel: { marginLeft: 8, fontSize: 16 },
-    smallInput: {
-        marginTop: 30,
-        marginBottom: 30,
-        width: 40,
         backgroundColor: '#fff',
     },
 });

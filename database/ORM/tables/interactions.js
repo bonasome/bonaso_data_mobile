@@ -29,13 +29,12 @@ export class Interaction extends BaseModel {
         synced: {type: 'boolean', default: 0}
     }
     static relationships = [
-        {model: InteractionSubcategory, field: 'subcategory_data', name: 'interaction_subcategories', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
+        {model: InteractionSubcategory, field: 'subcategories', name: 'interaction_subcategories', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
         {model: Task, field: 'task', name: 'tasks', relCol: 'id', thisCol: 'task', onDelete: 'nothing', fetch: true, many: false}
     ]
 
     static async save(data, id, col = 'id') {
         const { subcategory_data = [],  ...mainData } = data;
-
         // Save main record first
         const savedId = await super.save(mainData, id, col);
         
@@ -61,8 +60,8 @@ export class Interaction extends BaseModel {
         let toSync = [];
         for(const item of unsynced){
             let ir = await item.serialize()
-            const subcategory_data = Array.isArray(ir.subcategory_data)
-            ? ir.subcategory_data.map(cat => ({
+            const subcategory_data = Array.isArray(ir.subcategories)
+            ? ir.subcategories.map(cat => ({
                 id: null,
                 subcategory: { id: cat.subcategory.id, name: cat.subcategory.name },
                 numeric_component: (cat.numeric_component == '' ? null : cat.numeric_component),
@@ -70,7 +69,6 @@ export class Interaction extends BaseModel {
             : [];
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
             const server_id = respondent_link?.server_id;
-            console.log('server_id', server_id)
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
@@ -106,6 +104,7 @@ export class Interaction extends BaseModel {
                 if(data.errors.length > 0){
                     console.error(data.errors);
                 }
+                return true
             }
             else {
                 console.error(data);

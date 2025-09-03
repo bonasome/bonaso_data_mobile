@@ -13,7 +13,6 @@ export default async function saveMeta(data){
     const groups = Object.keys(data);
     await clearTables();
     for(const group of groups){
-        console.log(group)
         let model = null;
         switch(group){
             case 'age_ranges':
