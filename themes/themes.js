@@ -1,3 +1,4 @@
+//handle any color/style elements
 const theme = {
     colors: {
         bonasoMain: 'rgb(21, 103, 54)',

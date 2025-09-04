@@ -9,19 +9,26 @@ import theme from "@/themes/themes";
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import IconInteract from "./inputs/IconInteract";
 import StyledText from "./styledText";
 
 export default function Header() {
-    const { signOut, offlineMode, setOfflineMode, setAccessToken, setRefreshToken, offlineSignIn } = useAuth();
+    /*
+    App header that displays information and gives actions to sync app and logout. Visible at all times
+    once the user is authorized. 
+    */
+    
+    //get necesary contexts
+    const { signOut, offlineMode } = useAuth();
     const { isServerReachable, setIsServerReachable } = useConnection();
-    const [user, setUser] = useState(null);
 
+    //custom action to focibly sync the app (upload unsynced data and get latest info from the server)
+    //available when user is connected and not in offline mode 
+    //will also manually recheck connection
     const sync = async () => {
         const connected = await checkServerConnection();
-        if (connected) {
+        if (connected && !offlineMode) {
             try {
                 await Respondent.upload();
                 await Interaction.upload();
@@ -37,7 +44,7 @@ export default function Header() {
 
     return(
         <View style={styles.header}>
-            {user && <StyledText type="defaultSemiBold" numberOfLines={1} ellipsizeMode="tail">{user?.username}</StyledText>}
+            {/* Icon to display connection status */}
             <MaterialIcons 
                 style={styles.connected} 
                 name={isServerReachable ? 'wifi' : 'wifi-off' } size={20} 

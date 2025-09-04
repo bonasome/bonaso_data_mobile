@@ -19,11 +19,13 @@ export default function IndexWrapper({ children, page, onPageChange, onSearchCha
         return Math.ceil(entries / (fromServer ? 20 : 10)) == 0 ? 1 : Math.ceil(entries / (fromServer ? 20 : 10));
     }, [entries]);
 
+    //handle change in search bar and pass value to children
     const handleSearch = (val) => {
         onSearchChange?.(val); // optional chaining in case the prop isn't passed
         onPageChange(1); // tell parent we moved to page 1
     };
 
+    //handle page change and pass value to children
     const handlePageChange = (newPage) => {
         onPageChange(newPage);
     };

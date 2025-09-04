@@ -16,6 +16,12 @@ import StyledText from '../styledText';
 
 
 function InteractionCard({ ir, fromServer=false }){
+    /*
+    Card that displays information about an interaction. 
+    - ir (object): the information to display
+    - fromServer(boolean, optional): did this data come form the server
+    */
+
     const router = useRouter();
     const { isServerReachable } = useConnection();
 
@@ -32,7 +38,8 @@ function InteractionCard({ ir, fromServer=false }){
 
     return(
         <View key={ir.id} style={fromServer ? styles.interactionCard : styles.unuploadedCard}>
-            <StyledText style={{ marginBottom: 10 }} type="defaultSemiBold">{isServerReachable ? ir.task?.display_name : `${ir.task?.indicator?.code} : ${ir.task?.indicator?.name} (${ir.task?.organization?.name}, ${ir.task?.project?.name})`}</StyledText>
+            {/* Alter style if the interaction is not uploaded so the user knows */}
+            <StyledText style={{ marginBottom: 10 }} type="defaultSemiBold">{ir.task?.display_name}</StyledText>
             <StyledText style={{ marginBottom: 10 }}>{prettyDates(ir.interaction_date)} at {ir.interaction_location}</StyledText>
             
             {ir?.subcategories?.length > 0 && <View style={{ marginBottom: 10 }}> 
@@ -78,7 +85,6 @@ export default function Interactions({ localId, serverId=null, updateTrigger=nul
     //fetch array of interactions        
     useEffect(() => {
         //if user is connected to the internet and a serverId exists, try to fetch interactions form the server
-        
         if(isServerReachable && serverId && !offlineMode){
             const getInteractions = async() => {
                 try {
@@ -97,7 +103,7 @@ export default function Interactions({ localId, serverId=null, updateTrigger=nul
             }
             getInteractions();
         }
-        //if offline, fetch locally
+        //fetch local interactions as well (for user offline or edge case where upload failed)
         const getLocal = async () => {
             const localIr = await Interaction.filter({ respondent_uuid: localId });
             let serialized = await Promise.all(localIr.map(ir => ir.serialize()));
@@ -137,7 +143,6 @@ const styles = StyleSheet.create({
         padding: 20,
         backgroundColor: theme.colors.bonasoUberDarkAccent,
         marginBottom: 10,
-
     },
     ul: {
         paddingLeft: 20, // indent like <ul>

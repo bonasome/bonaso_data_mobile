@@ -1,6 +1,13 @@
 import BaseModel from "../base";
 
+
 export class SyncRecord extends BaseModel {
+    /*
+    Model that stores information about when information that lives on the device was last updated.
+    Data should be refetched every 12 hours at minimum. 
+    Constructed with a table_updated field that includes the table (or table group) that was updated
+    and the time it was updated.
+    */
     static table = 'sync_record';
     static fields = {
         table_updated: {type: 'text',  primary: true},
@@ -15,6 +22,9 @@ export class SyncRecord extends BaseModel {
     }
 }
 
+//tables that store label/value pairs for converting db values to more readable labels
+//each of these has the same structure, label/value
+//also has a custom getLabel method that takes a value and returns the label as a string
 export class District extends BaseModel {
     static table = 'districts';
     static fields = {
@@ -76,6 +86,19 @@ export class AgeRange extends BaseModel {
     static async getLabel(value){
         if(!value) return null;
         const ar = await AgeRange.find(value, 'value');
+        return ar.label;
+    }
+}
+
+export class SpecialRespondentAttribute extends BaseModel {
+    static table = 'special_respondent_attributes';
+    static fields = {
+        value: {type: 'text', primary: true},
+        label: {type: 'text'},
+    }
+    static async getLabel(value){
+        if(!value) return null;
+        const ar = await SpecialRespondentAttribute.find(value, 'value');
         return ar.label;
     }
 }

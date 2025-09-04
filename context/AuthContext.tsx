@@ -5,6 +5,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { deleteSecureItem, saveSecureItem } from '../services/secureStorage';
 
 type AuthContextType = {
+    /*
+    Types for AuthContent exports
+    */
     isAuthenticated: boolean;
     isLoading: boolean;
     accessToken: string | null;
@@ -21,11 +24,16 @@ type AuthContextType = {
 const AuthContext= createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }) =>{
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [refreshToken, setRefreshToken] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [offlineMode, setOfflineMode] = useState(false);
+    /*
+    Context that manages the app's authentication state. Wrap around the entire app. 
+    Pretty much everything should require auth to use. 
+    */
+    const [accessToken, setAccessToken] = useState<string | null>(null); //store access token from server
+    const [refreshToken, setRefreshToken] = useState<string | null>(null); //store refresh token from server
+    const [isLoading, setIsLoading] = useState(true); //global loading state
+    const [offlineMode, setOfflineMode] = useState(false); //if user logged in offline, they will not have server tokens, and cannot access any API endpoints
 
+    //try to get tokens
     useEffect(() => {
         const loadToken = async () => {
             const access = await SecureStore.getItemAsync('accessToken');
@@ -37,11 +45,12 @@ export const AuthProvider = ({ children }) =>{
         loadToken();
     }, []);
 
+    //generate signout function as found in [../services/authService.js]
     useEffect(() => {
         AuthService.setSignOut(signOut);
     }, []);
 
-
+    //sign a user in if the server approves their credentials
     const signIn = async (data:any) => {
         await saveSecureItem('accessToken', data.access);
         await saveSecureItem('refreshToken', data.refresh);
@@ -51,12 +60,14 @@ export const AuthProvider = ({ children }) =>{
         setOfflineMode(false);
         console.log('Signed In');
     }
+    //sign a user in if they login offline
     const offlineSignIn = async (token:string) => {
         await saveSecureItem('userToken', token);
-        setAccessToken(token);
+        setAccessToken(token); //random token, will not work with the server
         setOfflineMode(true);
         console.log('Signed In');
     }
+    //clean up on signout
     const signOut = async() => {
         await deleteSecureItem('accessToken');
         await deleteSecureItem('refreshToken');
@@ -67,6 +78,7 @@ export const AuthProvider = ({ children }) =>{
         console.log('Signed Out');
         router.replace('/login');
     }
+    //return necessary states
     return(
         <AuthContext.Provider value={{
             isAuthenticated: !!accessToken,
@@ -86,6 +98,7 @@ export const AuthProvider = ({ children }) =>{
     );
 }
 
+//export states for use in components
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if(!context){

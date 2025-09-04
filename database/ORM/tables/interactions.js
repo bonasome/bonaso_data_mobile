@@ -3,7 +3,12 @@ import BaseModel from '../base';
 import { IndicatorSubcategory } from './indicators';
 import { RespondentLink } from './respondents';
 import { Task } from './tasks';
+
+
 export class InteractionSubcategory extends BaseModel {
+    /*
+    Stores data about subcategories related to an indicator (m2o through)
+    */
     static table = 'interaction_subcategories';
 
     static fields = {
@@ -17,6 +22,10 @@ export class InteractionSubcategory extends BaseModel {
 }
 
 export class Interaction extends BaseModel {
+    /*
+    Stores information about interactions. Must be linked to a respondent link object through the respondent
+    uuid. Storing to respondent link prevents confusion about referencing local IDs versus server IDs.
+    */
     static table = 'interactions'
 
     static fields = {
@@ -33,6 +42,7 @@ export class Interaction extends BaseModel {
         {model: Task, field: 'task', name: 'tasks', relCol: 'id', thisCol: 'task', onDelete: 'nothing', fetch: true, many: false}
     ]
 
+    //custom save method that will wipe and reset subcategories on save
     static async save(data, id, col = 'id') {
         const { subcategory_data = [],  ...mainData } = data;
         // Save main record first
@@ -57,7 +67,7 @@ export class Interaction extends BaseModel {
             console.log('No interactions to sync');
             return false;
         }
-        let toSync = [];
+        let toSync = []; //array of data to upload
         for(const item of unsynced){
             let ir = await item.serialize()
             const subcategory_data = Array.isArray(ir.subcategories)
@@ -67,14 +77,15 @@ export class Interaction extends BaseModel {
                 numeric_component: (cat.numeric_component == '' ? null : cat.numeric_component),
             }))
             : [];
-            console.log(ir.task.display_name, ir.respondent_uuid, subcategory_data)
+            //find related respondent, even if this was created offline, respondents are uploaded first so they should have a server ID by now 
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
             const server_id = respondent_link?.server_id;
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
             }
-            if(ir.numeric_component == '') ir.numeric_component = null
+            if(ir.numeric_component == '') ir.numeric_component = null;
+            //interaction object as backend expects it
             toSync.push({
                 local_id: ir.id,
                 respondent: server_id,
@@ -95,12 +106,13 @@ export class Interaction extends BaseModel {
             });
             const data = await response.json();
             if(response.ok){
+                //if OK, get map of uploaded ids and their corresponding server ID
                 const map = data.mappings;
                 console.log('map', map)
                 for(const instance of map){
                     const local = instance.local_id;
                     console.log('local', local)
-                    await Interaction.delete(local);
+                    await Interaction.delete(local); //delete if the server confirms it is in the server by sending the ID pair back
                 };
                 if(data.errors.length > 0){
                     console.error(data.errors);

@@ -1,4 +1,9 @@
 export default function cleanLabels(str) {
+    /*
+    Helper function that takes a string and performs several operations to make it more readable, such as 
+    splitting words by underscores and replacing common abbreviations. 
+    - str (string): string to clean
+    */
     if (typeof str !== 'string') {
         console.warn('cleanLabels requires a string, received:', str);
         return '';

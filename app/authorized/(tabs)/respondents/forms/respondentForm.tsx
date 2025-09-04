@@ -100,21 +100,6 @@ export default function CreateRespondent() {
         };
     }, []);
 
-    //helper function to load most recent pregnancy data (since unlike the website, the app only tracks the most recent pregnancy)
-    const pregnancyInfo = useMemo(() => {
-        //if no pregnnacy data, return nothing
-        if(!serverId || !existing) return null;
-        if(!existing?.pregnancies || existing?.pregnancies?.length == 0) return null
-        //find most recent pregnancy by term_began
-        let most_recent = existing?.pregnancies?.reduce((latest, current) => {
-            return new Date(current.term_began) > new Date(latest.term_began) ? current : latest;
-        });
-        //set existing date values based on this
-        if(most_recent.term_began) most_recent.term_began = new Date(most_recent.term_began);
-        if(most_recent.term_ended) most_recent.term_ended = new Date(most_recent.term_ended);
-        return most_recent
-    }, [existing]);
-
 
     //set the default values
     const defaultValues = useMemo(() => {
@@ -137,6 +122,7 @@ export default function CreateRespondent() {
 
             kp_status: existing?.kp_status?.map((kp) => (kp.name)) ?? [],
             disability_status: existing?.disability_status?.map((d) => (d.name)) ?? [],
+            special_attribute: existing?.special_attribute?.map((attr) => (attr.name)) ?? [],
             
             hiv_positive: serverId ? existing?.hiv_status?.hiv_positive : existing?.hiv_positive ?? false,
             date_positive: serverId ?  existing?.hiv_status?.date_positive  : existing?.date_positive ?? null,
@@ -352,6 +338,8 @@ export default function CreateRespondent() {
             options: meta?.kp_types},
         {name: 'disability_status', label: 'Disability Status (Select all that apply)', type: 'multiselect',  
             options: meta?.disability_types},
+        {name: 'special_attribute', label: 'Special Attributes (Select all that apply)', type: 'multiselect',  
+            options: meta?.special_attributes?.filter(a => (!['PLWHIV', 'PWD', 'KP'].includes(a.value)))},
     ]
     //hiv positive
     const hivpos = [

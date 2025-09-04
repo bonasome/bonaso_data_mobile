@@ -3,6 +3,9 @@ import { Image } from 'expo-image';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import StyledText from './styledText';
 export default function LoadingScreen(){
+    /*
+    Returns a full loading/splash screen, for when a whole screen is loading.
+    */
     return(
         <View style={styles.container}>
             <Image style={styles.loginImg} source={require('../assets/images/bonasoWhite.png')} />

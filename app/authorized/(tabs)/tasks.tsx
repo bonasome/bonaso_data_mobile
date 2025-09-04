@@ -3,6 +3,7 @@ import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
+import { SpecialRespondentAttribute } from "@/database/ORM/tables/meta";
 import { Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
@@ -15,6 +16,19 @@ function TaskCard({ task }) {
     - task (object): The task to display information about
     */
     const [expanded, setExpanded] = useState(false);
+    const [labels, setLabels] = useState({});
+
+    //convert respondent DB values to readable labels based on the locally stored respondents meta
+        useEffect(() => {
+            const getLabels = async() => {
+                const required_attributes = await Promise.all(task?.indicator?.required_attributes?.map(a => SpecialRespondentAttribute.getLabel(a.name))) ?? [];
+                setLabels({
+                    required_attributes: required_attributes
+                })
+            }
+            getLabels();
+        }, [task]);
+
     return(
         <View style={styles.card}>
             <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ marginBottom: 5 }}>
@@ -39,6 +53,16 @@ function TaskCard({ task }) {
                         <View key={cat.id} style={styles.li}>
                             <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
                             <StyledText>{cat.name}</StyledText>
+                        </View>
+                    ))}
+                </View>}
+
+                {task.indicator.required_attributes.length > 0 && <View style={{ marginBottom: 5 }}>
+                    <StyledText type="defaultSemiBold">Requires Respondent Attribute</StyledText>
+                    {labels?.required_attributes.map((attr) => (
+                        <View key={attr} style={styles.li}>
+                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                            <StyledText>{attr}</StyledText>
                         </View>
                     ))}
                 </View>}

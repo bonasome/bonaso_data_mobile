@@ -2,6 +2,9 @@ import BaseModel from "../base";
 import { Indicator } from "./indicators";
 
 export class Project extends BaseModel {
+    /*
+    Stores basic info about a project
+    */
     static table='projects';
 
     static fields = {
@@ -14,6 +17,9 @@ export class Project extends BaseModel {
 }
 
 export class Organization extends BaseModel {
+    /*
+    Stores basic info about an org
+    */
     static table = 'organizations';
 
     static fields = {
@@ -24,6 +30,9 @@ export class Organization extends BaseModel {
 
 
 export class Task extends BaseModel {
+    /*
+    Stores data about a task. When fetched will also collect info about related org, project, and indicator.
+    */
     static table = 'tasks';
 
     static fields = {

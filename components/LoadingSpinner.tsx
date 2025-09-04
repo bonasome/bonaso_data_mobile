@@ -1,6 +1,11 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import StyledText from './styledText';
 export default function LoadingSpinner({ label=''}){
+    /*
+    Small spinner that indicates a component is loading. Useful when one specific component in an app 
+    is loading. 
+    - label (string, optional): display loading + label for a but more info
+    */
     return(
         <View style={styles.container}>
             <ActivityIndicator size="large" color="#fffff" />

@@ -8,13 +8,21 @@ import StyledButton from "../inputs/StyledButton";
 
 
 export default function PregnancyModal({ onSave, onCancel, existing=null }){
+    /*
+    Model that allows a user to edit, create, or delete a pregnancy instance for a respondent. 
+    - onSave (function): what to do with the data when submitted
+    - onCancel (function): closes the modal
+    - existing (object): pregnancy data to edit
+    */
 
+    //the server will treat no term_began as a delete, so do that to delete the object
     const onRemove = () => {
         const pregnancy = {id: existing?.id, term_began: null, term_ended: null};
         onSave({pregnancy_data: [pregnancy]});
         onCancel();
     }
 
+    //helper function to validate pregnancy dates are not in the future and does not end before it starts
     const dateValidation = (dateString, label, after=null, afterLabel='date of birth') => {
         //takes an ISO string and checks if its in the future or past the respondent DOB if dobCheck is enabled
         const date = new Date(dateString);
@@ -32,7 +40,9 @@ export default function PregnancyModal({ onSave, onCancel, existing=null }){
         return {success: true, message: ''}
     }
 
+    //handle submission of form, verify dates and then convert data to how the server will expect it
     const onSubmit = (data) => {
+        //validate dates are not in the future and ended is not before start
         data.term_began = checkDate(data.term_began)
         if(!data.term_began){
             alert('A valid term began date is Required.'); 
@@ -51,11 +61,13 @@ export default function PregnancyModal({ onSave, onCancel, existing=null }){
                 return;
             }
         }
+        //convert to how the server expects it
         const pregnancy = {id: existing?.id ?? null, term_began: data.term_began, term_ended: data.term_ended}
         onSave({pregnancy_data: [pregnancy]});
         onCancel();
     }
 
+    //set defailt start/end dates
     const defaultValues = useMemo(() => {
         return {
             term_began: existing?.term_began ?? null,
@@ -73,6 +85,7 @@ export default function PregnancyModal({ onSave, onCancel, existing=null }){
         }
     }, [existing, reset, defaultValues]);
 
+    //dates
     const info = [
         {name: 'term_began', label: 'Pregnancy Began (Required)', type: 'date', rules: {required: 'Required'}},
         {name: 'term_ended', label: 'Pregnancy Ended (Leave blank if ongoing)', type: 'date' },

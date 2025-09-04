@@ -4,6 +4,12 @@ import BaseModel from '../base';
 
 
 export class RespondentLink extends BaseModel {
+    /*
+    Link table that stores a custom local uuid alongside a server ID. Every time a user views or creates a 
+    respondent, a local ID is created, and if applicable, it is paired with a server ID. This way, 
+    when a user creates an interaction (linked to a respondent), it can always go to this table, which 
+    will have the local ID and once the respondent is in the server, also the server ID. 
+    */
     static table = 'respondent_links';
 
     static fields = {
@@ -14,7 +20,22 @@ export class RespondentLink extends BaseModel {
     static relationships = [];
 }
 
+export class SpecialAttribute extends BaseModel {
+    /*
+    stores a respondent's special attributes (m2o through)
+    */
+    static table = 'special_attributes';
+
+    static fields = {
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
+        name: {type: 'text'},
+    }
+}
+
 export class KPStatus extends BaseModel {
+    /*
+    stores a respondent's kp statuses (m2o through)
+    */
     static table = 'kp_status';
 
     static fields = {
@@ -24,6 +45,9 @@ export class KPStatus extends BaseModel {
     static relationships = [];
 }
 export class DisabilityStatus extends BaseModel {
+    /*
+    stores a respondent's disability statuses (m2o through)
+    */
     static table = 'disability_status';
 
     static fields = {
@@ -34,6 +58,9 @@ export class DisabilityStatus extends BaseModel {
 }
 
 export class Pregnancy extends BaseModel {
+    /*
+    stores a respondent's pregnancy history (term began/term ended) (m2o through)
+    */
     static table = 'pregnancies';
 
     static fields = {
@@ -46,6 +73,11 @@ export class Pregnancy extends BaseModel {
 }
 
 export class Respondent extends BaseModel {
+    /*
+    Stores basic information about a respondent. Ideally this table should only live on the device
+    while the user is offline and should be deleted once uploaded to the server to prevent proliferation
+    of sensitive data. 
+    */
     static table = 'respondents';
     
     static fields = {
@@ -69,22 +101,26 @@ export class Respondent extends BaseModel {
         date_positive: {type: 'text', allow_null: true},
     }
 
+    //allow searching with these cols
     static searchCols = ['first_name', 'last_name', 'local_id', 'village', 'id_no'];
 
     static relationships = [
         {model: KPStatus, field: 'kp_status', name: 'kp_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
         {model: DisabilityStatus, field: 'disability_status', name: 'disability_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
+        {model: SpecialAttribute, field: 'special_attribute', name: 'special_attributes', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true},
         {model: Pregnancy, field: 'pregnancies', name: 'pregnancies', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}
     ]
 
+    //extend serializer since the server sends hiv data as an object
     async serialize() {
         let baseSerialized = await super.serialize();
         baseSerialized.hiv_status = {hiv_positive: baseSerialized.hiv_positive, date_positive: baseSerialized.date_positive};
         return baseSerialized;
     }
 
+    //custom save method that parses out m2o fields and saves them in the correct table
     static async save(data, id, col = 'id') {
-        const { kp_status = [], disability_status = [], ...mainData } = data;
+        const { special_attribute=[], kp_status = [], disability_status = [], ...mainData } = data;
         const newUUID = randomUUID(); //will serve as the primary key and the link key
         const link = await RespondentLink.save({ uuid: newUUID });
         mainData.local_id = newUUID
@@ -99,20 +135,28 @@ export class Respondent extends BaseModel {
         for (const dis of disability_status) {
             await DisabilityStatus.save({ name: dis, respondent: newUUID });
         }
+
+        // Save related special attributes
+        for (const attr of special_attribute) {
+            await SpecialAttribute.save({ name: attr, respondent: newUUID });
+        }
         return newUUID; // Return id so caller can fetch full object if needed
     }
 
+    //custom function to upload all local respondents to the server
     static async upload() {
         const unsynced = await Respondent.all();
         if(unsynced.length === 0){
             console.log('No interactions to sync');
             return false;
         }
-        let toSync = []
+        let toSync = []; //array of data to upload
         for(const instance of unsynced){
+            //get serialized data and convert a few field names to how the backend expects the data
             let ser = await instance.serialize();
             ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
             ser.disability_status_names = ser.disability_status.map((d) => (d.name));
+            ser.special_attribute_names = ser.special_attribute.map((d) => (d.name));
             ser.hiv_status_data = {hiv_positive: ser?.hiv_positive ?? null, date_positive: ser?.date_positive ?? null};
             ser.pregnancy_data = ser.pregnancies
             toSync.push(ser);
@@ -126,13 +170,12 @@ export class Respondent extends BaseModel {
             });
             const data = await response.json();
             if(response.ok){
-                const map = data.mappings;
+                const map = data.mappings; //server will return a map of local IDs that were uploaded and their server ID
                 for(const instance of map){
                     const local = instance.local_id;
                     const server = instance.server_id;
-                    console.log(local, server)
-                    const updated = await RespondentLink.save({ 'server_id': server, 'uuid': local });
-                    await Respondent.delete(local, 'local_id');
+                    const updated = await RespondentLink.save({ 'server_id': server, 'uuid': local }); //if server confirmed this was uploaded, save the server ID in the links table
+                    await Respondent.delete(local, 'local_id'); //then delete from device
                 };
                 if(data.errors){
                     console.error(data.errors);
@@ -141,7 +184,6 @@ export class Respondent extends BaseModel {
             else{
                 console.error(data)
             }
-            
         }
         catch(err){
             console.error(err);

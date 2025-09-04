@@ -1,6 +1,22 @@
 import BaseModel from "../base";
 
+export class RequiredAttribute extends BaseModel {
+    /*
+    Stores an indicator's attributes (m2o through)
+    */
+    static table = 'required_attributes';
+
+    static fields = {
+        indicator: {type: 'integer', relationship: {table: 'indicators', column: 'id'}},
+        name: {type: 'text'},
+    }
+    static relationships = [];
+}
+
 export class IndicatorSubcategory extends BaseModel {
+    /*
+    Stores an indicator's subcategories (m2o through)
+    */
     static table = 'indicator_subcategories';
     
     static fields = {
@@ -12,6 +28,9 @@ export class IndicatorSubcategory extends BaseModel {
 }
 
 export class IndicatorPrerequisite extends BaseModel {
+    /*
+    Stores an indicator's prerequisite indicator's (m2o through)
+    */
     static table = 'indicator_prerequisites';
 
     static fields = {
@@ -21,6 +40,7 @@ export class IndicatorPrerequisite extends BaseModel {
     static rules = [
         {rule: 'unique', col1: 'dependent_id', col2: 'prerequisite_id'}
     ]
+    //on serialize, get deails about the prerequisite indicator
     static get relationships() {
         const { Indicator } = require('./indicators'); // or dynamic import
         return [
@@ -30,6 +50,10 @@ export class IndicatorPrerequisite extends BaseModel {
 }
 
 export class Indicator extends BaseModel {
+    /*
+    Stores information about an indicator. On serialize, will also fetch subcateogry data, prerequisite data,
+    and information about required attributes. 
+    */
     static table = 'indicators';
     
     static fields = {
@@ -44,9 +68,11 @@ export class Indicator extends BaseModel {
 
     static relationships = [
         {model: IndicatorPrerequisite, field: 'prerequisites', name: 'indicator_prerequisites', relCol: 'dependent_id', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
-        {model: IndicatorSubcategory, field: 'subcategories', name: 'indicator_subcategories', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+        {model: IndicatorSubcategory, field: 'subcategories', name: 'indicator_subcategories', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
+        {model: RequiredAttribute, field: 'required_attributes', name: 'required_attributes', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
     ]
 
+    //extends base serializer, since some indicators may share subcategories if matched, fetch them
     async serialize() {
         let baseSerialized = await super.serialize();
         if(this.match_subcategories_to){

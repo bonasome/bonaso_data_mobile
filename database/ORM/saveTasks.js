@@ -1,8 +1,11 @@
 import openDB from '@/database/dbManager';
-import { Indicator, IndicatorPrerequisite, IndicatorSubcategory } from './tables/indicators';
+import { Indicator, IndicatorPrerequisite, IndicatorSubcategory, RequiredAttribute } from './tables/indicators';
 import { Organization, Project, Task } from './tables/tasks';
 
 async function clearTables(){
+    /*
+    Helper function that clears all existing task data for keepin it fresh. 
+    */
     const db = await openDB();
     //cascade might take care of all of these but play it safe
     const tables = ['tasks', 'projects', 'organizations', 'indicator_subcategories', 'indicators']
@@ -12,9 +15,16 @@ async function clearTables(){
 }
 
 export default async function saveTasks(data){
+    /*
+    Takes data recieved from the server and converts saves it locally. Task data includes project, indicator,
+    and some organization info that we will also save locally. 
+    - data (object): task data from the server to save. 
+    */
+
     if(!data) return;
-    await clearTables();
+    await clearTables(); //start by clearning existing tasks (this should only be called when data is already in memory)
     for (const item of data){
+        //parse out and save task data
         const task = {
             id: item.id,
             display_name: item.display_name,
@@ -24,6 +34,7 @@ export default async function saveTasks(data){
         };
         await Task.save(task);
         
+        //parse out and save project data
         const project = {
             id: item.project.id,
             name: item.project.name,
@@ -32,13 +43,14 @@ export default async function saveTasks(data){
             end: item.project.end,
         };
         await Project.save(project);
-
+        //parse out and save org data
         const organization = {
             id: item.organization.id,
             name: item.organization.name
         }
         await Organization.save(organization);
 
+        //parse out and save indicator data
         const indicator = {
             id: item.indicator.id,
             code: item.indicator.code,
@@ -50,6 +62,7 @@ export default async function saveTasks(data){
         }
         await Indicator.save(indicator);
 
+        //parse out and save indicaotr subcategory data (unless matched, in which case serialization will handle it)
         if(item.indicator.subcategories.length > 0 && !item.indicator.match_subcategories_to){
             for(const subcat of item.indicator.subcategories){
                 const is = {
@@ -60,7 +73,7 @@ export default async function saveTasks(data){
                 await IndicatorSubcategory.save(is)
             }
         }
-
+        //parse out and save indicator prerequisite data
         if(item.indicator.prerequisites.length > 0){
             for(const prereq of item.indicator.prerequisites){
                 const ip = {
@@ -68,6 +81,16 @@ export default async function saveTasks(data){
                     prerequisite_id: prereq.id
                 }
                 await IndicatorPrerequisite.save(ip)
+            }
+        }
+
+        if(item.indicator.required_attributes.length > 0){
+            for(const attr of item.indicator.required_attributes){
+                const data = {
+                    indicator: item.indicator.id,
+                    name: attr.name,
+                }
+                await RequiredAttribute.save(data);
             }
         }
     }

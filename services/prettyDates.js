@@ -1,6 +1,6 @@
 export default function prettyDates(uglyDate, time=false, monthOnly=false, long=false, ){
     /*
-    Function that takes an ISO date or datetime and converts it to a more readable string.
+    Function that takes an ISO date string or datetime string and converts it to a more readable string.
     - uglyDate: ISO date
     - time (boolean): include a time component
     - monthOnly (boolean): do not include the day

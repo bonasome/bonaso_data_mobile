@@ -6,8 +6,8 @@ export default async function offlineLogin(username, password){
     Takes a username and password and attempts to match it with offline credentials stored on the device. 
     Returns an object containing a success boolean and a message for displaying if the login fails.
     */
-   //check if credentials are available
-    const storedCredentials = await getSecureItem('user_credentials')
+   
+    const storedCredentials = await getSecureItem('user_credentials'); //check if credentials are available
     if(storedCredentials){
         try{
             const cred = JSON.parse(storedCredentials);

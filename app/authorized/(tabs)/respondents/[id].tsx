@@ -7,7 +7,7 @@ import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/tables/meta";
+import { AgeRange, DisabilityType, District, KPType, Sex, SpecialRespondentAttribute } from "@/database/ORM/tables/meta";
 import { Pregnancy, Respondent, RespondentLink } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import prettyDates from "@/services/prettyDates";
@@ -124,12 +124,14 @@ export default function RespondentDetail(){
             const district = await District.getLabel(respondent?.district);
             const kp_status = await Promise.all(respondent?.kp_status?.map(kp => KPType.getLabel(kp.name))) ?? [];
             const disability_status = await Promise.all(respondent?.disability_status?.map(d => DisabilityType.getLabel(d.name))) ?? [];
+            const special_attribute = await Promise.all(respondent?.special_attribute?.map(a => SpecialRespondentAttribute.getLabel(a.name))) ?? [];
             setLabels({
                 age_range: ar,
                 sex: sex,
                 district: district,
                 kp_status: kp_status,
                 disability_status: disability_status,
+                special_attribute: special_attribute,
             })
         }
         getLabels();
@@ -141,12 +143,14 @@ export default function RespondentDetail(){
         return country ? country.name.common : null;
     }
 
+    //handle the user creating, editing, or deleting a user pregnancy
     const editPregnancy = async (data) => {
         try{
             console.log('submitting data...');
             //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage on device
             if(serverId && isServerReachable){
-                //convert fields to how the backend expects them
+                //send data as a patch. The pregnancy modal should provide correct data for editing/creating
+                //it will also send the correct data for deleting, which the server will do if a term_began is null while an existing id is provided
                 try{
                     console.log('uploading respondent', data);
                     const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`, {
@@ -156,7 +160,7 @@ export default function RespondentDetail(){
                     });
                     const returnData = await response.json();
                     if(response.ok){
-                        alert('Saved');
+                        alert('Pregnancy status updated!');
                         getRespondent();
                     }
                 }
@@ -164,13 +168,16 @@ export default function RespondentDetail(){
                     console.error(err);
                 }
             }
+            //if connection is lost in the middle of update, alert the user
             else if(serverId && !isServerReachable){
                 alert('You are currently offline. Please reconnect to make edits.');
                 return;
             }
-            //if respondent is not in server, create or update local record
+            //if respondent is not in server, create or update the local record
             else{
-                console.log(data)
+                console.log(data);
+                //the server will treat a null term_began with an id as a delete
+                //so handle the same situation locally
                 if(!data.pregnancy_data[0]?.term_began){
                     await Pregnancy.delete(data?.pregnancy_data[0]?.id);
                     alert('removed');
@@ -181,7 +188,7 @@ export default function RespondentDetail(){
                 pregData.respondent = localId;
                 let result = await Pregnancy.save(pregData); //save locally first
                 getRespondent();
-                alert('Saved');
+                alert('Pregnancy status updated!');
             }
         }
         catch(err){
@@ -226,6 +233,16 @@ export default function RespondentDetail(){
                         ))}
                     </View>}
 
+                    {respondent?.special_attribute?.length > 0 && <View style={{ marginTop: 5}}>
+                        <StyledText type="defaultSemiBold">Special Attributes</StyledText>
+                        {labels?.special_attribute?.map((a) => (
+                            <View key={a} style={styles.li}>
+                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                <StyledText>{a}</StyledText>
+                            </View>
+                        ))}
+                    </View>}
+
                     {respondent?.hiv_status?.hiv_positive && <View>
                         <StyledText>HIV Positive since {prettyDates(respondent?.hiv_status?.date_positive)}</StyledText>
                     </View>}
@@ -241,12 +258,10 @@ export default function RespondentDetail(){
                             <IconInteract onPress={() => {setEditingPreg(true); setTargetPreg(p)}} icon={<FontAwesome6 name="pencil" size={24} color="white" />} style={{ marginStart: 12 }}/>
                         </View>))}
                     </View>}
-
                 </View>
             </View>
-            <View>
-                <AddInteraction localId={localId} serverId={serverId} onSubmit={() => setRefreshKey(new Date())} />
-            </View>
+            {/* Allow user to create, view, and edit interactions related to this respondent */}
+            <AddInteraction localId={localId} serverId={serverId} onSubmit={() => setRefreshKey(new Date())} />
             <View>
                 <Interactions localId={localId} serverId={serverId} updateTrigger={refreshKey} />
                 <View style={{ padding: 30 }}></View>

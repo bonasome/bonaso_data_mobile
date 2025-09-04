@@ -1,11 +1,14 @@
-import theme from "@/themes/themes";
 import React from "react";
 import { StyleSheet, Text, TextProps, TextStyle } from "react-native";
 export type ThemedTextProps = TextProps & {
-    type?: "default" | "title" | "defaultSemiBold" | "subtitle" | "link" | "darkSemiBold";
+    type?: "default" | "title" | "defaultSemiBold" | "subtitle" ;
 };
 
 export default function StyledText({children, type = "default", style, ...props}: ThemedTextProps) {
+    /*
+    Custom text component preloaded with app styles and with prebuilt type styles
+    types: default (standard text), defaultSemiBold (bolder), subtitle (slightly larger and bold), title (huge)
+    */
     return (
         <Text style={[styles[type], style as TextStyle,]}{...props}>
             {children}
@@ -24,12 +27,6 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         fontWeight: "600",
     },
-    darkSemiBold: {
-        color: theme.colors.bonasoUberDarkAccent,
-        fontSize: 15,
-        lineHeight: 24,
-        fontWeight: "600",
-    },
     title: {
         color: '#fff',
         fontSize: 32,
@@ -40,10 +37,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 20,
         fontWeight: "bold",
-    },
-    link: {
-        color: '#fff',
-        lineHeight: 30,
-        fontSize: 16,
     },
 });

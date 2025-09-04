@@ -5,16 +5,22 @@ import { useAuth } from './AuthContext';
 const ConnectionContext = createContext({ isConnected: true, isServerReachable: true })
 
 export const ConnectionTest = ({ children }) => {
-    const[isConnected, setIsConnected] = useState(false);
-    const[isServerReachable, setIsServerReachable] = useState(false);
+    /*
+    Context that helps manage whether or not a user is connected to the internet and whether or not 
+    the server is reachable.
+    */
+    const[isConnected, setIsConnected] = useState(false); //user has connection
+    const[isServerReachable, setIsServerReachable] = useState(false); //user can talk to server
     
-    const { offlineMode } = useAuth();
+    const { offlineMode } = useAuth(); //auth to determine if user has access/refresh tokens necessary for fetching APIs
     
+    //function to check connection
     const checkConnection = async () => {
         console.log('Checking connection...');
-        const state = await NetInfo.fetch();
+        const state = await NetInfo.fetch(); //check if they have internet access
         const connected = !!state.isConnected;
         setIsConnected(connected);
+        //if connected, see if they have server access
         if (connected) {
             const serverResponse = await checkServerConnection();
             if(offlineMode && serverResponse){
@@ -30,6 +36,7 @@ export const ConnectionTest = ({ children }) => {
         }
     };
 
+    //recheck connection every 60 seconds
     useEffect(() => {
         checkConnection();
         const interval = setInterval(async () => {

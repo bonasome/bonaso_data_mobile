@@ -1,6 +1,8 @@
 import StyledText from "@/components/styledText";
+import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
+import { Respondent } from "@/database/ORM/tables/respondents";
 import { Task } from "@/database/ORM/tables/tasks";
 import fetchWithAuth from '@/services/fetchWithAuth';
 import syncTasks from "@/services/syncTasks";
@@ -16,6 +18,7 @@ import StyledButton from "../inputs/StyledButton";
 import LoadingSpinner from "../LoadingSpinner";
 import { CommentModal, NumberModal, SubcategoryModal } from "./addInteractionModals";
 
+
 export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     /*
         Component that allows a user to create a number of interactions at once by entering a date and location
@@ -28,6 +31,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     */
     //context to check connection
     const { isServerReachable } = useConnection();
+    const { offlineMode } = useAuth();
     //vars to track high level information about all interactions
     const [doi, setDoi] = useState(new Date());
     const [location, setLocation] = useState('');
@@ -35,6 +39,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     const [selected, setSelected] = useState([]); //{id: taskID, task: task, subcategories_data: [], numeric_component: ''}
     //map that tracks allowed subcategories if there are prerequisites
     const [allowedSubcats, setAllowedSubcats] = useState({}); 
+
+    const [respondent, setRespondent] = useState(null); //store respondent in case needed for checking attrs
     //meta vars to display/manage modals when more info is required
     const [showSubcats, setShowSubcats] = useState(false)
     const [showNumber, setShowNumber] = useState(false);
@@ -77,6 +83,35 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         }
         updateSearch();
     }, [search])
+
+    //try to get respondent details
+    const getRespondent = async() => {
+        if(respondent) return;
+        if (serverId && isServerReachable && !offlineMode) {
+            try {
+                console.log('fetching respondent details...')
+                const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
+                const data = await response.json();
+                if (response.ok) {
+                    setRespondent(data);
+                } 
+                else {
+                    console.error('API error', response.status);
+                }
+            } 
+            catch (err) {
+                console.error('Error fetching respondent', err);
+            }
+        }
+        //otherwise look locally
+        else if (localId) {
+            const found = await Respondent.find(localId, 'local_id');
+            const serialized = await found?.serialize();
+            console.log(serialized)
+            setRespondent(serialized);
+        }
+    }
+
 
     //function that runs whever a task is added from selected
     const handlePress = async (task) => {
@@ -154,6 +189,25 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                 console.error(err);
             }
         }
+
+        //if this task's indicator requires an attribute, make sure the respondent has it, and send a warning if not
+        if(task.indicator.required_attributes?.length > 0){
+            await getRespondent();
+            for(const attr of task.indicator.required_attributes){
+                //since HIV/PWD/KP are autocalced, if the user if offline, these attributes may not be calced yet
+                //so checka against the raw values to verify
+                let passed = false;
+                if(attr.name == 'PLWHIV') passed = respondent?.hiv_status?.hiv_positive;
+                else if(attr.name == 'KP') passed = respondent?.kp_status?.length > 0;
+                else if(attr.name == 'PWD') passed = respondent?.disability_status?.length > 0;
+                else passed = respondent.special_attribute.find(a => a.name == attr.name) ? true : false
+                
+                if(!passed){
+                    alert(`This task requires that this respondent is a ${attr.name}, but they are not marked as such. Please confirm this is correct. This interaction will be flagged if the issue is not corrected. Thanks!`)
+                }
+            }
+        }
+
         //create a new package containing all the fields the interaction may need
         const newIr = {id: task.id, task: task, subcategories_data: [], numeric_component: '', comments: ''}
 
@@ -314,7 +368,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                     <StyledText type='defaultSemiBold'>Interaction Date</StyledText>
                     <View style={styles.date}>
                         <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
-                            <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
+                            <StyledText type='defaultSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
                         </TouchableOpacity>
                         {showDate && (
                         <DateTimePicker

@@ -2,8 +2,14 @@ import theme from "@/themes/themes";
 import { StyleSheet, View } from "react-native";
 import StyledText from "../styledText";
 import Field from "./Field";
-//a section of a form. helps with logic/segmenting/styling.
+
 export default function FormSection({ fields, control, header=null }) {
+    /*
+    Returns a series of related form fields (or inputs) that can collectively respond to logic. 
+    - fields (array): array of objects used to construct inputs (see [./Field.tsx])
+    - control (RHF control): form controller
+    - header (string, optional): text to display at the top of the section
+    */
     return (
         <View style={styles.segment}>
             {header && <StyledText type="subtitle">{header}</StyledText>}

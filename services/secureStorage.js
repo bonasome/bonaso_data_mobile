@@ -1,9 +1,14 @@
 import * as SecureStore from 'expo-secure-store';
 
+/*
+Helper functions that get, retrieve, and delete items from secure storage.
+*/
+
 export async function saveSecureItem(key, value) {
     try {
         await SecureStore.setItemAsync(key, value);
-    } catch (e) {
+    } 
+    catch (e) {
         console.error('Failed to save item', e);
     }
 }
@@ -11,7 +16,8 @@ export async function saveSecureItem(key, value) {
 export async function getSecureItem(key) {
     try {
         return await SecureStore.getItemAsync(key);
-    } catch (e) {
+    } 
+    catch (e) {
         console.error('Failed to retrieve item', e);
         return null;
     }
@@ -20,7 +26,8 @@ export async function getSecureItem(key) {
 export async function deleteSecureItem(key) {
     try {
         await SecureStore.deleteItemAsync(key);
-    } catch (e) {
+    } 
+    catch (e) {
         console.error('Failed to delete item', e);
     }
 }

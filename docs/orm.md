@@ -25,6 +25,8 @@ The base ORM model can be extended by creating new models. These models take the
     
 Depending on the model, it may be worthwhile to also extend the default save method. Respondents/Interactions also have an upload method. 
 
+**NOTE**: If you add a new model, make sure you add it to the *models* array in **[database/ORM/migrate.js]**!
+
 For full example of field construction, view [database/ORM/tables/respondents.js]
 
 ---

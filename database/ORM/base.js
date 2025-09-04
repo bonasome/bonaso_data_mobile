@@ -2,8 +2,12 @@ import openDB from '../dbManager';
 
 
 export default class BaseModel {
-    static table;
+    /*
+    Base ORM model that can be expanded on to create models that can interact with the database. 
+    */
+    static table; //name of the table as it will appear in the database
     
+    //function that fetches all records
     static async all() {
         const db = await openDB();
         const results = await db.getAllAsync(`SELECT * FROM ${this.table}`);
@@ -11,12 +15,23 @@ export default class BaseModel {
     }
 
     static async find(id, col = 'id') {
+        /*
+        fetches a single record based on an ID and returns it as a model instance
+        if value provided is not a primary key, it will return only the first one found
+        - id: value to find
+        - col (string, optional): column to find value in (in case primary key column is not named ID)
+        */
         const db = await openDB();
         const result = await db.getFirstAsync(`SELECT * FROM ${this.table} WHERE ${col} = ?`, [id]);
         return result ? new this(result) : null;
     }
 
     static async filter(params) {
+        /*
+        Takes params in an object like {column: value, column2: value2} and filters the table. 
+        Can pass null to get values that are null and 'not_null' to get any not null values. 
+        - params (object): column/value pairs to find. 
+        */
         const db = await openDB();
         const clauses = [];
         const vals = [];
@@ -40,7 +55,13 @@ export default class BaseModel {
         return results?.map(r => new this(r)) ?? [];
     }
 
+
     static async search(term) {
+        /*
+        Accepts a string and searches a number of columns as configured in the model instance 
+        (array of column names). Returns any rows where one of the columns includes the search term. 
+        - term (string): search term columns must include
+        */
         const db = await openDB();
         if (!this.searchCols) {
             console.warn('Cannot search this table');
@@ -62,8 +83,16 @@ export default class BaseModel {
     }
 
     static async delete(id, col = 'id') {
-        //relationships = [{name: table_name, onCol: related_column, onDelete: protect/cascade/nullify}]
+        /*
+        Function that deletes values where an provided value is matched in a given column. Deletion
+        may affect other tables if relationships are defined
+        ( [{name: table_name, onCol: related_column, onDelete: protect/cascade/nullify/nothing}]).
+        Thee be warned, if the column is not a primary key, it will delete every instance with the provided value. 
+        - id: value to delete
+        - col (string, optional): column to find value in (default id)
+        */
         const db = await openDB();
+        //if protected values exist in another table, throw an error 
         const protect = this.relationships.filter(r => r.onDelete =='protect');
         if(protect.length > 0){
             for (const table of protect){
@@ -71,12 +100,14 @@ export default class BaseModel {
                 if(conflicts) throw new Error(`Cannot delete model instance ${id} from table ${this.table} as it has protected relationships to table ${table.name}.`)
             }
         }
+        //if cascade, delete any value in another table that has this value in the defined column
         const cascade = this.relationships.filter(r => r.onDelete =='cascade')
         if(cascade.length > 0){
             for(const table of cascade){
                 await db.runAsync(`DELETE FROM ${table.name} WHERE ${table.relCol} = ?`, [id])
             }
         }
+        //if set null, set the foreign key value as null
         const setNull = this.relationships.filter(r => r.onDelete =='nullify')
         if(setNull.length > 0){
             for(const table of setNull){
@@ -86,13 +117,17 @@ export default class BaseModel {
         await db.runAsync(`DELETE FROM ${this.table} WHERE ${col} = ?`, [id]);
     }
 
+    //drops the model table from the database. Will be recreated on migration
     static async drop() {
         const db = await openDB();
         await db.runAsync(`DROP TABLE IF EXISTS ${this.table}`);
     }
 
     static async migrate() {
-        //map {name: type: TYPE, DEFAULT: null, RELATIONSHIP: {table: table_name, column: column_name} }
+        /*
+        builds this table in the database. If data exists, it will be preserved (ideally), even if 
+        columns are added and removed. Uses the fields attribute in the model to construct the table
+        */
         const fields = this.fields
         const db = await openDB();
         const colNames = Object.keys(fields);
@@ -108,7 +143,7 @@ export default class BaseModel {
             [this.table]
         );
 
-        // If table exists, rename it temporarily
+        // If table exists, rename it temporarily so that data can be transferred
         if (exists) {
             await db.runAsync(`DROP TABLE IF EXISTS ${this.table}__old`);
             await db.runAsync(`ALTER TABLE ${this.table} RENAME TO ${this.table}__old`);
@@ -117,7 +152,7 @@ export default class BaseModel {
         let primaryKeyCol = null
         // Build CREATE TABLE query
         let colsArray = colNames.map(col => {
-            //set as parimary if specified
+            //set as primary if specified
             const primaryValue = this.fields[col]?.primary;
             //confirm multiple pk cols are not provided
             if(primaryValue && primaryKeyCol) throw new Error('Cannot have multiple primary key columns.');
@@ -144,6 +179,7 @@ export default class BaseModel {
             return null;
         }).filter(Boolean);
 
+        //create relations and rules clauses
         const relsClause = rels.length > 0 ? `, ${rels.join(', ')}` : '';
         const rulesClause = this?.rules?.map((r) => {
             if(r.rule == 'unique') return `, UNIQUE (${r.col1}, ${r.col2})`
@@ -163,15 +199,20 @@ export default class BaseModel {
             await db.runAsync(`DROP TABLE IF EXISTS ${this.table}__old`);
         }
     }
-
+    //?
     constructor(data) {
         Object.assign(this, data);
     }
 
     async serialize() {
+        /*
+        function that converts model instance to an object. If specified in relationships in the model, 
+        it will also pull related instances (either as an object or array of objects)
+        */
         const obj = { ...this };
         const toFetch = this.constructor.relationships?.filter(r => r.fetch) ?? [];
 
+        //if related values should be fetched, recursively call serialize
         for (const rel of toFetch) {
             const related = await rel.model.filter({ [rel.relCol]: obj[rel.thisCol] });
             const serializedRelated = await Promise.all(related.map(r => r.serialize()));
@@ -186,6 +227,13 @@ export default class BaseModel {
     }
 
     static async save(data, id=null, col = 'id') {
+        /*
+        Save an object to the database. If primary key value already exists, will automatically
+        update that record. 
+        - data (object): data to save
+        - id (optional): id value to save over
+        - col (string, optional): column to find id in 
+        */
         const db = await openDB();
 
         const cols = Object.keys(data);
