@@ -10,9 +10,12 @@ type AuthContextType = {
     accessToken: string | null;
     refreshToken: string | null;
     offlineMode: boolean;
+    setOfflineMode;
     signIn: (data: JSON) => Promise<void>;
     signOut: () => Promise<void>;
     offlineSignIn: (token:string) => Promise<void>;
+    setAccessToken,
+    setRefreshToken,
 };
 
 const AuthContext= createContext<AuthContextType | undefined>(undefined);
@@ -71,9 +74,12 @@ export const AuthProvider = ({ children }) =>{
             accessToken,
             refreshToken,
             offlineMode,
+            setOfflineMode,
             signIn,
             offlineSignIn,
             signOut,
+            setRefreshToken,
+            setAccessToken,
         }}>
             {children}
         </AuthContext.Provider>

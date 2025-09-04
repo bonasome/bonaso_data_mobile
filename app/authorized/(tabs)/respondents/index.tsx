@@ -1,5 +1,5 @@
-import IconInteract from "@/components/inputs/IconInteract";
-import Input from "@/components/inputs/Input";
+import IndexWrapper from "@/components/IndexWrapper";
+import StyledButton from "@/components/inputs/StyledButton";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
@@ -7,11 +7,9 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Respondent } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
 import theme from "@/themes/themes";
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, TouchableOpacity, View } from "react-native";
 
 
 function RespondentCard({ respondent, fromServer }){
@@ -28,7 +26,7 @@ function RespondentCard({ respondent, fromServer }){
     const param = fromServer ? respondent?.id : `-${respondent?.local_id}`;
     return (
         <View>
-            <TouchableOpacity onPress={() => router.push(`/authorized/(tabs)/respondents/${param}`)} style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10 }}>
+            <TouchableOpacity onPress={() => router.push(`/authorized/(tabs)/respondents/${param}`)} style={ fromServer ? { backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10 } : { backgroundColor: theme.colors.warningText, padding: 10, margin: 10 }}>
                 <StyledText type="defaultSemiBold">{display}</StyledText>
             </TouchableOpacity>
         </View>
@@ -50,6 +48,7 @@ export default function Respondents(){
     //search/page for viewing
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    const [entries, setEntries] = useState(0);
 
     //fetch respondents on load or search change
     useEffect(() => {
@@ -61,6 +60,7 @@ export default function Respondents(){
                     const data = await response.json();
                     if (response.ok) {
                         setServerRespondents(data.results);
+                        setEntries(data.count)
                     } else {
                         console.error('API error', response.status);
                     }
@@ -78,34 +78,27 @@ export default function Respondents(){
             setLocalRespondents(localResp);
         }
         searchLocal();
-    }, [search]);
+    }, [search, page]);
 
 
     return(
-        <View style={{ flex: 1}}>
-            <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 25}}>
-                <StyledText type="title">Respondents</StyledText>
-                <View style={{ display: 'flex', flexDirection: 'row'}}>
-                    <FontAwesome5 name="search" size={24} color="white" style={{ marginTop: 'auto', marginBottom: 'auto', marginRight: 20}} />
-                    <Input value={search} onChange={(val) => setSearch(val)} placeholder={'try searching a name...'} style={{ width: '65%'}} />
-                    <IconInteract onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} 
-                        icon={<FontAwesome name="user-plus" size={24} color="white" />} 
-                        style={{ padding: 15, marginStart: 'auto', marginTop: 25, marginBottom: 10, backgroundColor: theme.colors.bonasoLightAccent }} 
-                    />
-                </View>
-            </View>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
-            {localRespondents.length > 0 && <View>
-                <StyledText type="subtitle">Not Uploaded!</StyledText>
-                {localRespondents.map(r => (<RespondentCard key={r.local_id} respondent={r} fromServer={false} />))}
-            </View>}
-            {(isServerReachable && !offlineMode) && <View>
-                {serverRespondents.length > 0 ? 
-                    serverRespondents.map(r => (<RespondentCard key={r.id} respondent={r} fromServer={true}/>)) :
-                    <StyledText type="defaultSemiBold">No respondents found...</StyledText>}
-            </View>}
+            <IndexWrapper entries={entries} page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={(isServerReachable && !offlineMode)}>
+                <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} label={'Create New Respondent'}/>
+                {localRespondents.length == 0 && serverRespondents.length == 0 && <StyledText>No respondents found...</StyledText>}
+                {localRespondents.length > 0 && <View style={{ borderColor: theme.colors.warning, borderWidth: 2, backgroundColor: theme.colors.warningBg, padding: 10, marginTop: 10, marginBottom: 10 }}>
+                    <StyledText type="subtitle" style={{ color: theme.colors.warningText}}>Not Uploaded!</StyledText>
+                    {localRespondents.map(r => (<RespondentCard key={r.local_id} respondent={r} fromServer={false} />))}
+                </View>}
+                
+                {(isServerReachable && !offlineMode) && <View>
+                    {serverRespondents.length > 0 &&
+                        serverRespondents.map(r => (<RespondentCard key={r.id} respondent={r} fromServer={true}/>))}
+                </View>}
+            </IndexWrapper>
             <View style={{ padding: 15 }}></View>
         </StyledScroll>
-        </View>
+        </KeyboardAvoidingView>
     )
 }

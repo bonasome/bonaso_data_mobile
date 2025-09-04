@@ -2,20 +2,25 @@ import IconInteract from "@/components/inputs/IconInteract";
 import LoadingScreen from "@/components/Loading";
 import AddInteraction from "@/components/respondents/addInteraction";
 import Interactions from "@/components/respondents/interactions";
+import PregnancyModal from "@/components/respondents/pregnancyModal";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { AgeRange, DisabilityType, District, KPType, Sex } from "@/database/ORM/tables/meta";
-import { Respondent, RespondentLink } from "@/database/ORM/tables/respondents";
+import { Pregnancy, Respondent, RespondentLink } from "@/database/ORM/tables/respondents";
 import fetchWithAuth from "@/services/fetchWithAuth";
+import prettyDates from "@/services/prettyDates";
 import theme from "@/themes/themes";
+import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { randomUUID } from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import countries from "world-countries";
+
 
 export default function RespondentDetail(){
     /*
@@ -35,6 +40,9 @@ export default function RespondentDetail(){
     const [localId, setLocalId] = useState(null); //local uuid
     const [serverId, setServerId] = useState(null); //server ID
     
+    const [editingPreg, setEditingPreg] = useState(false); //pregnancy object currently being created/edited
+    const [targetPreg, setTargetPreg] = useState(null);
+
     const [refreshKey, setRefreshKey] = useState(new Date()); //update trigger for when interactions are added
 
     //get or create a local ID for this respondent
@@ -66,36 +74,40 @@ export default function RespondentDetail(){
             params: serverId ? { serverId: serverId } : {localId: localId} //pass serverID first so details are not stored on device
         })
     }
-    
     //try to get respondent details
-    useEffect(() => {
-        //if online and has a serverId, try to get details directly from the server
+    const getRespondent = async() => {
         if (serverId && isServerReachable && !offlineMode) {
-            (async () => {
-                try {
-                    const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
-                    const data = await response.json();
-                    if (response.ok) {
-                        setRespondent(data);
-                    } 
-                    else {
-                        console.error('API error', response.status);
-                    }
+            try {
+                console.log('fetching respondent details...')
+                const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`);
+                const data = await response.json();
+                if (response.ok) {
+                    setRespondent(data);
                 } 
-                catch (err) {
-                    console.error('Error fetching respondent', err);
+                else {
+                    console.error('API error', response.status);
                 }
-            })();
+            } 
+            catch (err) {
+                console.error('Error fetching respondent', err);
+            }
         }
         //otherwise look locally
         else if (localId) {
-            (async () => {
-                const found = await Respondent.find(localId, 'local_id');
-                const serialized = await found?.serialize();
-                setRespondent(serialized);
-            })();
+            const found = await Respondent.find(localId, 'local_id');
+            const serialized = await found?.serialize();
+            console.log(serialized)
+            setRespondent(serialized);
         }
-    }, [localId, serverId]);
+    }
+
+    useEffect(() => {
+        //if online and has a serverId, try to get details directly from the server
+        const initialLoad = async() => {
+            await getRespondent();
+        }
+        initialLoad();
+    }, [id, localId, serverId]);
 
     //helper function to get display name
     const display = useMemo(() => {
@@ -128,10 +140,60 @@ export default function RespondentDetail(){
         const country = countries.find(c => c.cca2 === alpha2.toUpperCase());
         return country ? country.name.common : null;
     }
-    
+
+    const editPregnancy = async (data) => {
+        try{
+            console.log('submitting data...');
+            //respondent was pulled from server and still connected, upload directly to avoid unnecesssary storage on device
+            if(serverId && isServerReachable){
+                //convert fields to how the backend expects them
+                try{
+                    console.log('uploading respondent', data);
+                    const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                    });
+                    const returnData = await response.json();
+                    if(response.ok){
+                        alert('Saved');
+                        getRespondent();
+                    }
+                }
+                catch(err){
+                    console.error(err);
+                }
+            }
+            else if(serverId && !isServerReachable){
+                alert('You are currently offline. Please reconnect to make edits.');
+                return;
+            }
+            //if respondent is not in server, create or update local record
+            else{
+                console.log(data)
+                if(!data.pregnancy_data[0]?.term_began){
+                    await Pregnancy.delete(data?.pregnancy_data[0]?.id);
+                    alert('removed');
+                    getRespondent();
+                    return;
+                }
+                let pregData = data.pregnancy_data[0]
+                pregData.respondent = localId;
+                let result = await Pregnancy.save(pregData); //save locally first
+                getRespondent();
+                alert('Saved');
+            }
+        }
+        catch(err){
+            console.error(err);
+        } 
+    }
+
     if(!respondent) return <LoadingScreen />
     return (
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
+            {editingPreg && <PregnancyModal onSave={(data) => editPregnancy(data)} onCancel={() => {setEditingPreg(false); setTargetPreg(null)}} existing={targetPreg} />}
             <View>
                 <View style={styles.section}>
                     <View style={{ display: 'flex', flexDirection: 'row'}}>
@@ -163,6 +225,23 @@ export default function RespondentDetail(){
                             </View>
                         ))}
                     </View>}
+
+                    {respondent?.hiv_status?.hiv_positive && <View>
+                        <StyledText>HIV Positive since {prettyDates(respondent?.hiv_status?.date_positive)}</StyledText>
+                    </View>}
+                    
+                    <StyledText type="defaultSemiBold">Pregnancies</StyledText>
+                    <IconInteract icon={<Ionicons name="add-circle" size={24} color="white" />} onPress={() => setEditingPreg(true)} label={'Add new pregnancy'}/>
+                    {respondent?.pregnancies?.length > 0 && <View>
+                        {respondent?.pregnancies.map((p) => (<View key={p.id} style={{ display: 'flex', flexDirection: 'row', maxWidth: '75%', padding: 4, backgroundColor: theme.colors.bonasoMain }}>
+                            <StyledText>
+                                {p.term_ended ? `Pregnant from ${prettyDates(p.term_began)} to ${prettyDates(p.term_ended)}` : 
+                            `Pregnant since ${prettyDates(p.term_began)}`}
+                            </StyledText>
+                            <IconInteract onPress={() => {setEditingPreg(true); setTargetPreg(p)}} icon={<FontAwesome6 name="pencil" size={24} color="white" />} style={{ marginStart: 12 }}/>
+                        </View>))}
+                    </View>}
+
                 </View>
             </View>
             <View>
@@ -173,6 +252,7 @@ export default function RespondentDetail(){
                 <View style={{ padding: 30 }}></View>
             </View>
         </StyledScroll>
+        </KeyboardAvoidingView>
     )
 }
 
@@ -195,6 +275,5 @@ const styles = StyleSheet.create({
         fontSize: 18,
         lineHeight: 22,
         marginRight: 6,
-    },
-
-});
+    }
+})

@@ -12,7 +12,7 @@ import theme from '@/themes/themes';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import countries from 'world-countries';
 
 
@@ -75,7 +75,7 @@ export default function CreateRespondent() {
                 }
             })();
         }
-    }, [localId, serverId])
+    }, [localId, serverId]);
 
     //load the meta (from local storage)
     useEffect(() => {
@@ -140,10 +140,6 @@ export default function CreateRespondent() {
             
             hiv_positive: serverId ? existing?.hiv_status?.hiv_positive : existing?.hiv_positive ?? false,
             date_positive: serverId ?  existing?.hiv_status?.date_positive  : existing?.date_positive ?? null,
-            
-            is_pregnant: serverId ? existing?.pregnancies?.length > 0 : existing?.is_pregnant ?? false,
-            term_began: serverId ? pregnancyInfo?.term_began : existing?.term_began ?? null,
-            term_ended: serverId ? pregnancyInfo?.term_ended : existing?.term_ended ?? null,
 
             email: existing?.email ?? '',
             phone_number: existing?.phone_number ?? '',
@@ -153,6 +149,23 @@ export default function CreateRespondent() {
 
     //constrct RHF variables
     const { control, handleSubmit, setValue, getValues, watch, reset, formState: { errors } } = useForm({ defaultValues });
+
+    const dateValidation = (dateString, label, after=null, afterLabel='date of birth') => {
+        //takes an ISO string and checks if its in the future or past the respondent DOB if dobCheck is enabled
+        const date = new Date(dateString);
+        const today = new Date();
+        let afterDate = null;
+        if(after) afterDate = new Date(after);
+
+        today.setHours(0, 0, 0, 0);
+        if(date > today){
+            return {success: false, message: `${label} cannot be in the future.`}
+        }
+        if(afterDate && date < afterDate){
+            return {success: false, message: `${label} cannot be before ${afterLabel}.`}
+        }
+        return {success: true, message: ''}
+    }   
 
     //handle submission
     const onSubmit = async (data) => {
@@ -168,31 +181,35 @@ export default function CreateRespondent() {
             data.phone_number = null;
         } 
         else {
-            //if not anon, validate DOB
-            if (!data.dob || new Date(data.dob) > new Date()) {
-                alert("Date of birth is invalid.");
-                return;
-            }
             data.age_range = null; //dob is the highest truth, age_range will be autocalced from that
+            //if not anon, validate DOB
             data.dob = checkDate(data.dob); //will return ISO string if default is ISO string or if date value is passed
             if(!data.dob){
                  alert('Date of Birth is Required.');
                 return
             }
+            const { success, message } = dateValidation(data.dob, 'Date of Birth');
+            if(!success){
+                alert(message);
+                return;
+            }
         }
         //check date positive date and return ISO string
-        data.date_positive = checkDate(data.date_positive);
-        if(data.hiv_positive && !data.date_positive){
-            alert('A valid date positive is Required.');
-            return;
+        if(data.hiv_positive){
+            data.date_positive = checkDate(data.date_positive);
+            if(!data.date_positive){
+                alert('A valid date positive is Required.');
+                return;
+            }
+            const { success, message } = dateValidation(data.date_positive, 'Date positive', data.dob);
+            if(!success){
+                alert(message);
+                return;
+            }
         }
-        //check pregnancy dates and return ISO strings
-        data.term_began = checkDate(data.term_began)
-        if(data.is_pregnant && !data.term_began){
-            alert('A valid term began date is Required.'); 
-            return;
+        else{
+            data.date_positive = null;
         }
-        data.term_ended = checkDate(data.term_ended); //this is nominally optional
         //try saving/uploading the data
         let result = null; //placeholder for saved id
         try{
@@ -204,8 +221,6 @@ export default function CreateRespondent() {
                 data.kp_status_names = data.kp_status;
                 data.disability_status_names = data.disability_status;
                 data.hiv_status_data = {hiv_positive: data.hiv_positive, date_positive: data.date_positive};
-                data.pregnancy_data = [{term_began: data.term_began, term_ended: data.term_ended, id: pregnancyInfo?.id ?? null}];
-                
                 try{
                     console.log('uploading respondent', data);
                     const response = await fetchWithAuth(`/api/record/respondents/${serverId}/`, {
@@ -281,7 +296,6 @@ export default function CreateRespondent() {
     const anon = useWatch({ control, name: 'is_anonymous', defaultValue: false });
     //show extra date fields if hiv positive/pregnant
     const hiv = useWatch({ control, name: 'hiv_positive', defaultValue: false });
-    const pregnant = useWatch({ control, name: 'is_pregnant', defaultValue: false });
     //anon toggle
     const isAnon = [
         { name: 'is_anonymous', label: "Does this respondent wish to remain anonymous", 
@@ -347,15 +361,6 @@ export default function CreateRespondent() {
     const datepos = [
         {name: 'date_positive', label: 'What date did this person become HIV positive (enter today if unsure) (Required)', type: 'date',  rules: { required: "Required" } },
     ]
-    //is pregnant
-    const isPregnant = [
-        {name: 'is_pregnant', label: 'Is this person pregnant (or were they recently pregnany)?', type: 'checkbox'}
-    ]
-    //prengnancy dates if pregnant
-    const pregDates = [
-        {name: 'term_began', label: 'When did this person become pregnant? (Required)', type: 'date', rules: { required: "Required" } },
-        {name: 'term_ended', label: "When did this person's pregnancy end (leave blank if ongoing)?", type: 'date'},
-    ]
     //contact info if not anon
     const contact = [
         {name: 'email', label: 'Email', type: 'email-address',  rules: {pattern: {value: /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/,
@@ -370,12 +375,12 @@ export default function CreateRespondent() {
 
     if(loading || !meta?.sexs) return <LoadingScreen /> //return loading if the meta has not loaded or existing hasn't loaded (assuming id was provided)
     return (
-        <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
             <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 20}}>
                 <StyledText type='subtitle'>{existing ? `Editing ${display}` : 'Creating New Respondent'}</StyledText>
             </View>
-            <View style={styles.form}>
+            <View style={{ marginTop: 10 }}>
                 <FormSection fields={isAnon} control={control} header={'Respondent Anonymity'} />
                 {anon && <FormSection fields={anonBasic} control={control} header='Basic Information' />}
                 {!anon && <FormSection fields={notAnonBasic} control={control} header='Basic Information' />}
@@ -385,8 +390,6 @@ export default function CreateRespondent() {
                 <FormSection fields={special} control={control} header='Additional Information'/>
                 <FormSection fields={hivpos} control={control} header='HIV Status'/>
                 {hiv && <FormSection fields={datepos} control={control} header='Date HIV Positive'/>}
-                <FormSection fields={isPregnant} control={control} header='Pregnancy Status'/>
-                {pregnant && <FormSection fields={pregDates} control={control} header='Pregnancy Dates (for most recent/active term)'/>}
                 {!anon && <FormSection fields={contact} control={control} header='Contact Information'/> }
 
                 <StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {console.log("Validation errors:", formErrors);})} label={'Submit'} />
@@ -394,23 +397,8 @@ export default function CreateRespondent() {
                 <StyledButton onPress={() => {existing ? router.push(`/authorized/(tabs)/respondents/${redirectId}`) :
                     router.push(`/authorized/(tabs)/respondents`)}} label={'Cancel'} />
             </View>
-            <View style={styles.spacer}>
-
-            </View>
+            <View style={{ padding: 30 }}></View>
         </StyledScroll>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    bg: {
-        flex: 1,
-        backgroundColor: theme.colors.bonasoDarkAccent,
-    },
-    form:{
-        marginTop: 10,
-    },
-    spacer: {
-        padding: 30,
-    }
-});

@@ -11,7 +11,7 @@ export class RespondentLink extends BaseModel {
         server_id: {type: 'integer', allow_null: true}, //corresponding server ID that interactions can pull from
     }
 
-    static relationships = []
+    static relationships = [];
 }
 
 export class KPStatus extends BaseModel {
@@ -21,7 +21,7 @@ export class KPStatus extends BaseModel {
         name: {type: 'text'},
         respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
     }
-    static relationships = []
+    static relationships = [];
 }
 export class DisabilityStatus extends BaseModel {
     static table = 'disability_status';
@@ -30,7 +30,19 @@ export class DisabilityStatus extends BaseModel {
         name: {type: 'text'},
         respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
     }
-    static relationships = []
+    static relationships = [];
+}
+
+export class Pregnancy extends BaseModel {
+    static table = 'pregnancies';
+
+    static fields = {
+        respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
+        term_began: {type: 'text'},
+        term_ended: {type: 'text', allow_null: true}
+    }
+
+    static relationships = [];
 }
 
 export class Respondent extends BaseModel {
@@ -55,9 +67,6 @@ export class Respondent extends BaseModel {
         created_at: {type: 'text', default: new Date().toISOString()},
         hiv_positive: {type: 'integer', default: 0},
         date_positive: {type: 'text', allow_null: true},
-        is_pregnant: {type: 'integer', default: 0},
-        term_began: {type: 'text', allow_null: true},
-        term_ended: {type: 'text', allow_null: true},
     }
 
     static searchCols = ['first_name', 'last_name', 'local_id', 'village', 'id_no'];
@@ -65,7 +74,14 @@ export class Respondent extends BaseModel {
     static relationships = [
         {model: KPStatus, field: 'kp_status', name: 'kp_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
         {model: DisabilityStatus, field: 'disability_status', name: 'disability_status', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}, 
+        {model: Pregnancy, field: 'pregnancies', name: 'pregnancies', relCol: 'respondent', thisCol: 'local_id', onDelete: 'cascade', fetch: true}
     ]
+
+    async serialize() {
+        let baseSerialized = await super.serialize();
+        baseSerialized.hiv_status = {hiv_positive: baseSerialized.hiv_positive, date_positive: baseSerialized.date_positive};
+        return baseSerialized;
+    }
 
     static async save(data, id, col = 'id') {
         const { kp_status = [], disability_status = [], ...mainData } = data;
@@ -98,7 +114,7 @@ export class Respondent extends BaseModel {
             ser.kp_status_names = ser.kp_status.map((kp) => (kp.name));
             ser.disability_status_names = ser.disability_status.map((d) => (d.name));
             ser.hiv_status_data = {hiv_positive: ser?.hiv_positive ?? null, date_positive: ser?.date_positive ?? null};
-            ser.pregnancy_data = [{term_began: ser.term_began, term_ended: ser.term_ended}]
+            ser.pregnancy_data = ser.pregnancies
             toSync.push(ser);
         }
         try{
@@ -115,7 +131,7 @@ export class Respondent extends BaseModel {
                     const local = instance.local_id;
                     const server = instance.server_id;
                     console.log(local, server)
-                    const updated = await RespondentLink.save({ 'server_id': server }, local, 'uuid');
+                    const updated = await RespondentLink.save({ 'server_id': server, 'uuid': local });
                     await Respondent.delete(local, 'local_id');
                 };
                 if(data.errors){

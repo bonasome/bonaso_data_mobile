@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
         padding: 12,
         marginTop: 20,
         alignItems: 'center',
+        marginEnd: 10, 
     },
     errorText:{
         color: theme.colors.errorText,

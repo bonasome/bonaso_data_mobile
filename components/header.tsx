@@ -15,7 +15,7 @@ import IconInteract from "./inputs/IconInteract";
 import StyledText from "./styledText";
 
 export default function Header() {
-    const { signOut, offlineMode } = useAuth();
+    const { signOut, offlineMode, setOfflineMode, setAccessToken, setRefreshToken, offlineSignIn } = useAuth();
     const { isServerReachable, setIsServerReachable } = useConnection();
     const [user, setUser] = useState(null);
 

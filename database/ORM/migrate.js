@@ -1,12 +1,12 @@
 import { Indicator, IndicatorPrerequisite, IndicatorSubcategory } from "./tables/indicators";
 import { Interaction, InteractionSubcategory } from "./tables/interactions";
 import { AgeRange, DisabilityType, District, KPType, Sex, SyncRecord } from './tables/meta';
-import { DisabilityStatus, KPStatus, Respondent, RespondentLink } from './tables/respondents';
+import { DisabilityStatus, KPStatus, Pregnancy, Respondent, RespondentLink } from './tables/respondents';
 import { Organization, Project, Task } from "./tables/tasks";
 
 export const models = [
     Indicator,IndicatorPrerequisite, IndicatorSubcategory, Respondent, RespondentLink, KPStatus, DisabilityStatus,
-    Project, Organization, Task, Interaction, InteractionSubcategory,District, AgeRange, Sex, 
+    Project, Organization, Task, Interaction, InteractionSubcategory,District, AgeRange, Sex, Pregnancy,
     KPType, DisabilityType, SyncRecord
 ]
 

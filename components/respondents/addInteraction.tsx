@@ -10,6 +10,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from "react";
 import { StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import IndexWrapper from "../IndexWrapper";
 import IconInteract from "../inputs/IconInteract";
 import StyledButton from "../inputs/StyledButton";
 import LoadingSpinner from "../LoadingSpinner";
@@ -45,8 +46,8 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     //tracks available tasks
     const [tasks, setTasks] = useState([]);
     //custom page tracker for paginating tasks (default length of 10)
-    const [page, setPage] = useState(0); 
-
+    const [page, setPage] = useState(1); 
+    const [search, setSearch] = useState('')
     const [expanded, setExpanded] = useState(false);
     //tracks if tasks are loding
     const [loading, setLoading] = useState(false);
@@ -66,6 +67,16 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
         loadTasks();
     }, [isServerReachable]);
 
+    useEffect(() => {
+        const updateSearch = async() => {
+            console.log(search)
+            const myTasks = await Task.all();
+            let serialized = await Promise.all(myTasks.map(t => t.serialize()));
+            if(search != '') setTasks(serialized.filter((t) => (t.display_name.toLowerCase().includes(search.toLowerCase()))));
+            else setTasks(serialized);
+        }
+        updateSearch();
+    }, [search])
 
     //function that runs whever a task is added from selected
     const handlePress = async (task) => {
@@ -265,15 +276,9 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
     }
 
     //only map tasks in page
-    const tasksToMap = tasks.slice(page*10, (page*10+10));
+    const tasksToMap = tasks.slice((page-1)*10, ((page-1)*10+10));
 
     if(loading) return <LoadingSpinner label={'tasks'} />
-    //if there are not tasks, you can't really do this so return nothing
-    if(!tasks || tasks.length === 0) return (
-        <View>
-            <StyledText type="subtitle">No tasks. Make sure you have synced tasks online.</StyledText>
-        </View>
-    )
     return(
         <View>
             {/* Conditional modals */}
@@ -306,7 +311,7 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                     {expanded ? <FontAwesome name="arrow-circle-o-up" size={24} color="white" style={{marginLeft: 'auto'}}/> : <FontAwesome name="arrow-circle-o-down" size={24} color="white" style={{marginLeft: 'auto'}}/>}
                 </TouchableOpacity>
                 {expanded && <View>
-                    <StyledText type='defaultSemiBold'>Date</StyledText>
+                    <StyledText type='defaultSemiBold'>Interaction Date</StyledText>
                     <View style={styles.date}>
                         <TouchableOpacity style={styles.button} onPress={() => setShowDate(true)}>
                             <StyledText type='darkSemiBold' style={styles.buttonText}>{new Date(doi).toDateString()}</StyledText>
@@ -320,45 +325,38 @@ export default function AddInteraction({ localId, serverId=null, onSubmit  }){
                         />
                         )}
                     </View>
-                    <StyledText type='defaultSemiBold'>Location</StyledText>
-                    <TextInput placeholder="location..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
+                    <StyledText type='defaultSemiBold'>Interaction Location</StyledText>
+                    <TextInput placeholder="Gaborone Clinic, Main Kgotla..." style={styles.input} value={location} onChangeText={(val) => setLocation(val)} />
 
                     <StyledText type='defaultSemiBold'>Tap on the tasks below to add them to this interaction...</StyledText>
-                    {tasksToMap.length > 0 && tasksToMap.map((task) => {
-                        const exists = selected.find(s => s.id === task.id);
-                        if(!exists) return <StyledButton label={task?.display_name} onPress={() => handlePress(task)} />
-                        return(
-                            <TouchableOpacity key={task.id} style={styles.selectedCard} onPress={() => handlePressAgain(exists)}>
-                                <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.display_name}</StyledText>
+                    <IndexWrapper page={page} onSearchChange={setSearch} onPageChange={setPage} entries={tasks?.length} fromServer={false}>
+                        {tasksToMap.length > 0 ? tasksToMap.map((task) => {
+                            const exists = selected.find(s => s.id === task.id);
+                            if(!exists) return <StyledButton key={task.id} label={task?.display_name} onPress={() => handlePress(task)} />
+                            return(
+                                <TouchableOpacity key={task.id} style={styles.selectedCard} onPress={() => handlePressAgain(exists)}>
+                                    <StyledText type='defaultSemiBold' style={styles.buttonText}>{task.display_name}</StyledText>
 
-                                {exists?.subcategories_data && exists?.subcategories_data.map((cat) => (
-                                    <View key={cat.subcategory.id} style={styles.li}>
+                                    {exists?.subcategories_data && exists?.subcategories_data.map((cat) => (
+                                        <View key={cat.subcategory.id} style={styles.li}>
+                                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                            <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
+                                        </View>
+                                    ))}
+
+                                    {exists?.numeric_component && <View style={styles.li}>
                                         <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                        <StyledText >{cat.subcategory.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
-                                    </View>
-                                ))}
+                                        <StyledText>{exists.numeric_component} </StyledText>
+                                    </View>}
 
-                                {exists?.numeric_component && <View style={styles.li}>
-                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                                    <StyledText>{exists.numeric_component} </StyledText>
-                                </View>}
-
-                                <IconInteract onPress={() => {setShowComments(true); setModalTask(exists)}} icon={<MaterialCommunityIcons name="comment-plus" size={24} color="white" />} />    
-                                <StyledText type="defaultSemiBold">Comments:</StyledText>
-                                <StyledText>{exists?.comments == '' ? 'No Comments' : `${exists?.comments}`}</StyledText>
-                            
-                            </TouchableOpacity>
-                        )
-                    })}
-                    {/* Small custom pagination system */}
-                    {tasks.length > 10 && <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'center', marginBottom: 30}}>
-                        <StyledButton onPress={() => setPage(prev => prev - 1)} label='Previous' disabled={page == 0} />
-                        <View style={{display: 'flex', flexDirection: 'column', justifyContent: 'center', marginStart: 20, marginEnd: 20}}>
-                            <StyledText>Page</StyledText>
-                            <StyledText>{page+1} of {Math.ceil(tasks.length/10)}</StyledText>
-                        </View>
-                        <StyledButton onPress={() => setPage(prev => prev + 1)} label='Next' disabled={page == (Math.ceil(tasks.length/10)-1)} />
-                    </View>}
+                                    <IconInteract onPress={() => {setShowComments(true); setModalTask(exists)}} icon={<MaterialCommunityIcons name="comment-plus" size={24} color="white" />} />    
+                                    <StyledText type="defaultSemiBold">Comments:</StyledText>
+                                    <StyledText>{exists?.comments == '' ? 'No Comments' : `${exists?.comments}`}</StyledText>
+                                
+                                </TouchableOpacity>
+                            )
+                        }) : <StyledText>No tasks found...</StyledText>}
+                    </IndexWrapper>
                     <StyledButton onPress={handleSubmit} label='Press Here to Save' disabled={(selected.length == 0 || location == '' || !doi)} />
                 </View>}
             </View>
@@ -405,9 +403,10 @@ const styles = StyleSheet.create({
         marginRight: 6,
     },
     input: {
-        marginTop: 30,
+        marginTop: 5,
         marginBottom: 30,
-        width: 250,
+        width: '90%',
+        padding: 15,
         backgroundColor: '#fff',
     },
 });

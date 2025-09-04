@@ -67,6 +67,7 @@ export class Interaction extends BaseModel {
                 numeric_component: (cat.numeric_component == '' ? null : cat.numeric_component),
             }))
             : [];
+            console.log(ir.task.display_name, ir.respondent_uuid, subcategory_data)
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
             const server_id = respondent_link?.server_id;
             if(!server_id){

@@ -11,8 +11,6 @@ export class SyncRecord extends BaseModel {
         if(!value) return null;
         const record = await SyncRecord.find(value, 'table_updated');
         if(!record) await SyncRecord.save({table_updated: value, updated_at: null });
-        console.log(record);
-        console.log(record.updated_at);
         return record.updated_at;
     }
 }

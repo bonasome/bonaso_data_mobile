@@ -1,3 +1,4 @@
+import IndexWrapper from "@/components/IndexWrapper";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
@@ -6,8 +7,7 @@ import { Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
 import { useEffect, useState } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
-
+import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
 
 function TaskCard({ task }) {
     /*
@@ -17,24 +17,24 @@ function TaskCard({ task }) {
     const [expanded, setExpanded] = useState(false);
     return(
         <View style={styles.card}>
-            <TouchableOpacity onPress={() => setExpanded(!expanded)}>
-                {task?.indicator && <StyledText type='subtitle' >{task.display_name}</StyledText>}
+            <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ marginBottom: 5 }}>
+                {task?.indicator && <StyledText type='defaultSemiBold' >{task.display_name}</StyledText>}
             </TouchableOpacity>
 
-            {expanded &&  <View>
-                <StyledText type="defaultSemiBold">{task.project.name}</StyledText>
-                {task.indicator.prerequisites && <View>
-                    <StyledText type="subtitle">Prerequisite Indicators</StyledText>
+            {expanded &&  <View style={{ marginBottom: 5,  }}>
+                {task?.indicator?.description ? <StyledText style={{ marginBottom: 5 }}>{task.indicator.description}</StyledText> : <StyledText>No description.</StyledText>}
+                {task.indicator.prerequisites.length > 0 && <View style={{borderWidth: 2, borderColor: theme.colors.warning, backgroundColor: theme.colors.warningBg, padding: 5 }}>
+                    <StyledText type="defaultSemiBold" style={{ color: theme.colors.warningText }}>Prerequisite Indicators</StyledText>
                     {task.indicator.prerequisites.map((p) => (
                         <View key={p.id} style={styles.li}>
-                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                            <StyledText>{`${p.indicator.code}: ${p.indicator.name}`}</StyledText>
+                            <StyledText style={[styles.bullet, {color: theme.colors.warningText}]}>{'\u2022'}</StyledText> 
+                            <StyledText style={{ color: theme.colors.warningText }}>{`${p.indicator.code}: ${p.indicator.name}`}</StyledText>
                         </View>
                     ))}
                 </View>}
 
-                {task.indicator.subcategories.length > 0 && <View>
-                    <StyledText type="subtitle">Subcategories</StyledText>
+                {task.indicator.subcategories.length > 0 && <View style={{ marginBottom: 5 }}>
+                    <StyledText type="defaultSemiBold">Subcategories</StyledText>
                     {task.indicator.subcategories.map((cat) => (
                         <View key={cat.id} style={styles.li}>
                             <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
@@ -43,9 +43,9 @@ function TaskCard({ task }) {
                     ))}
                 </View>}
                 
-                {task.indicator.require_numeric && <StyledText type="defaultSemiBold">
-                    Requires number
-                </StyledText>}
+                {task.indicator.require_numeric && <View style={{ borderWidth: 2, borderColor: theme.colors.warning, backgroundColor: theme.colors.warningBg, padding: 5}}>
+                    <StyledText type="defaultSemiBold" style={{ marginBottom: 5, color: theme.colors.warningText }}>Requires a number!</StyledText>
+                </View>}
 
             </View>}
         </View>
@@ -58,6 +58,10 @@ export default function Tasks() {
     */
     const { offlineMode } = useAuth(); //check if user has tokens
     const { isServerReachable } = useConnection();
+
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState('');
+
     const [tasks, setTasks] = useState([]); //tasks to display
 
     //fetch the tasks from the db
@@ -68,19 +72,26 @@ export default function Tasks() {
             }   
             const myTasks = await Task.all();
             let serialized = await Promise.all(myTasks.map(t => t.serialize())); //serialize the array
-            setTasks(serialized);
+            if(!search || search != '') setTasks(serialized.filter((t) => (t.display_name.toLowerCase().includes(search.toLowerCase()))));
+            else setTasks(serialized);
         };
         loadTasks();
-    }, [isServerReachable]);
+    }, [isServerReachable, search]);
 
+    const tasksToMap = tasks.slice((page-1)*10, ((page-1)*10+10));
     return (
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
             <StyledText type="title">Your Tasks</StyledText>
-            {tasks.length > 0 && tasks.map((t) => (
-                <TaskCard key={t.id} task={t} />
-            ))}
-            {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
+            <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
+                {tasksToMap.length > 0 && tasksToMap.map((t) => (
+                    <TaskCard key={t.id} task={t} />
+                ))}
+                {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
+            </IndexWrapper>
+            <View style={{ padding: 20}}></View>
         </StyledScroll>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -96,16 +107,16 @@ const styles = StyleSheet.create({
     },
     ul: {
     paddingLeft: 20, // indent like <ul>
-  },
-  li: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  bullet: {
-    fontSize: 18,
-    lineHeight: 22,
-    marginRight: 6,
-  },
+    },
+    li: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 4,
+    },
+    bullet: {
+        fontSize: 18,
+        lineHeight: 22,
+        marginRight: 6,
+    },
 
 });

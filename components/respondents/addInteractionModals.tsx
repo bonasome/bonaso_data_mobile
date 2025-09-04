@@ -138,6 +138,10 @@ export function SubcategoryModal({ options, onUpdate, onCancel, onClear, numeric
             onUpdate(values);
         }
         else{
+            if(subcats.find(cat => (!cat?.numeric_component || cat?.numeric_component == ''))){
+                alert('Please enter a number for each selected subcategory.');
+                return;
+            }
             onUpdate(subcats);
         }
     }

@@ -7,11 +7,12 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
 import checkDate from "@/services/checkDate";
 import fetchWithAuth from "@/services/fetchWithAuth";
+import prettyDates from "@/services/prettyDates";
 import theme from "@/themes/themes";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 
 export default function EditInteraction(){
     /*
@@ -85,9 +86,26 @@ export default function EditInteraction(){
     //handle submission
     const onSubmit = async (data) => {
         //make sure interaction date is valid
-        data.interaction_date= checkDate(data.interaction_date); //will return ISO string if ISO string (default) or date object (has been edited)
+        data.interaction_date = checkDate(data.interaction_date); //will return ISO string if ISO string (default) or date object (has been edited)
         if(!data.interaction_date){
             alert('A valid interaction date is Required.');
+            return;
+        }
+        //make sure date is within the project range and not in the future
+        const projectStart = new Date(existing?.task?.project?.start);
+        const projectEnd = new Date(existing?.task?.project?.end);
+        const interactionDate = new Date(data.interaction_date);
+
+        // midnight today (strip time)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        interactionDate.setHours(0,0,0,0)
+        if(interactionDate > today){
+            alert('Interaction date cannot be in the future.');
+            return;
+        }
+        if (interactionDate < projectStart || interactionDate > projectEnd) {
+            alert(`Interaction date outside of project scope. Please select a date between ${prettyDates(existing?.task?.project?.start)} and ${prettyDates(existing?.task?.project?.end)}`);
             return;
         }
         //also require location
@@ -95,6 +113,7 @@ export default function EditInteraction(){
             alert('Interaction location is required.');
             return;
         }
+
         let result = null; //placeholder to track saved ID
 
         //if online, try to upload changes directly
@@ -130,11 +149,17 @@ export default function EditInteraction(){
         else{
             try{
                 setLoading(true);
-                //save locally
+                //if subcategories and no numeric, convert the list of ids returned by checkbox to objects the DB expects
+                if(!existing?.task?.indicator?.require_numeric && existing?.task?.indicator?.subcategories?.length > 0){
+                    data.subcategory_data = data.subcategory_data.map(c => {
+                        const name = existing.task.indicator.subcategories.find(o => o.id == c)?.name
+                        return {id: null, subcategory: {id: c, name: name}, numeric_component: null};
+                    })
+                }
                 console.log('submitting data...', data);
+                //save the interaction locally in case of connection interrupt
                 result = await Interaction.save(data, existing?.id); //save locally first
                 //if connected, try to upload the data
-                //upload locally (in edge case where server error prevents something from being uploaded)
                 if (isServerReachable) {
                     try {
                         //upload the interaction
@@ -166,7 +191,8 @@ export default function EditInteraction(){
 
     //prepare existing subcategory data based on whether a number is required
     const subcatData = useMemo(() => {
-        if(!existing || !existing?.subcategories || existing?.subcategories?.length === 0) return [];
+        if(!existing || !existing?.subcategories || existing?.subcategories?.length === 0) return [];// return empty array if not data
+        //map with numbers if requires numeric
         if(existing?.task?.indicator?.require_numeric){
             return existing?.subcategories?.map(cat => (
                 {
@@ -176,6 +202,7 @@ export default function EditInteraction(){
                 }
             )) ?? []
         }
+        //if no subcats, convert to array of ints for checkbox component
         else{
             return existing?.subcategories?.map(cat => cat?.subcategory?.id) ?? [];
         }
@@ -187,7 +214,7 @@ export default function EditInteraction(){
             interaction_date: existing?.interaction_date ?? null,
             interaction_location: existing?.interaction_location ?? '',
             numeric_component: existing?.numeric_component?.toString() ?? '',
-            subcategory_data: subcatData,
+            subcategory_data: subcatData, //interaction ORM will expect this as subcategory data
             comments: existing?.comments ?? '',
         }
     }, [existing]); 
@@ -213,18 +240,19 @@ export default function EditInteraction(){
     //show if subcategories
     const subcats = [
         {name: 'subcategory_data', label: 'Subcategories',  type: `${existing?.task?.indicator?.require_numeric ? 'multinumber' : 'multiselect'}`,
-            options: existing?.task?.indicator?.subcategories, valueField: 'id', labelField: 'name',
+            options: existing?.task?.indicator?.subcategories, valueField: 'id', labelField: 'name', rules: {required: 'Required'}
         }
     ]
+    //optional comments
     const comments = [
         {name: 'comments', label: 'Comments', type: 'textarea'}
     ]
 
     if(loading) return <LoadingScreen />
     return (
-        <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <StyledScroll>
-                <View style={styles.form}>
+                <View style={{ marginTop: 20 }}>
                     <FormSection fields={info} control={control} header={'Editing Interaction'} />
                     {existing?.task?.indicator?.require_numeric && existing?.task?.indicator?.subcategories?.length == 0 &&
                         <FormSection fields={numeric} control={control} />}
@@ -238,20 +266,8 @@ export default function EditInteraction(){
                     <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/${redirectId}`)} label={'Cancel'}/>
                     {existing && !serverId && <StyledButton onPress={handleDelete} label={'Delete'}/>}
                 </View>
-
-                <View style={{ padding: 30 }}>
-
-                </View>
+                <View style={{ padding: 30 }}></View>
             </StyledScroll>
         </KeyboardAvoidingView>
     );
 }
-const styles = StyleSheet.create({
-    bg: {
-        flex: 1,
-        backgroundColor: theme.colors.bonasoDarkAccent,
-    },
-    form:{
-        marginTop: 30,
-    },
-});
