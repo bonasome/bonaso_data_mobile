@@ -68,7 +68,7 @@ export default function Index() {
     const { isServerReachable } = useConnection(); //for checking if the user is connected to the server
 
     const route = useRoute();
-
+    
     //display alert if they are offline
     useEffect(() => {
         const offlineWarning = async() => {
