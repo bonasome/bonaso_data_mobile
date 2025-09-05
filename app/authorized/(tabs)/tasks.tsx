@@ -35,7 +35,7 @@ function TaskCard({ task }) {
                 {task?.indicator && <StyledText type='defaultSemiBold' >{task.display_name}</StyledText>}
             </TouchableOpacity>
 
-            {expanded &&  <View style={{ marginBottom: 5,  }}>
+            {expanded &&  <View style={{ marginBottom: 5, marginTop: 10 }}>
                 {task?.indicator?.description ? <StyledText style={{ marginBottom: 5 }}>{task.indicator.description}</StyledText> : <StyledText>No description.</StyledText>}
                 {task.indicator.prerequisites.length > 0 && <View style={{borderWidth: 2, borderColor: theme.colors.warning, backgroundColor: theme.colors.warningBg, padding: 5 }}>
                     <StyledText type="defaultSemiBold" style={{ color: theme.colors.warningText }}>Prerequisite Indicators</StyledText>
@@ -108,6 +108,7 @@ export default function Tasks() {
         <StyledScroll>
             <StyledText type="title">Your Tasks</StyledText>
             <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
+                <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
                 {tasksToMap.length > 0 && tasksToMap.map((t) => (
                     <TaskCard key={t.id} task={t} />
                 ))}

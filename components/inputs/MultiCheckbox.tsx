@@ -5,6 +5,18 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import StyledText from '../styledText';
 
 export default function MultiCheckbox({ options, value, label, onChange, error, valueField='value', labelField='label' }) {
+    /*
+    Allows a user to select multiple items from a list. Returns an array.
+    - options (array): Array of objects to display. Needs a a value field (what to return) and a label field (what to display next to the checkbox)
+    - value (array): array of selected objects
+    - label (string): what text to display at the top of the component
+    - onChange (function): what to do when values are selected or unselected
+    - error (string, RHF): RHF error field
+    - valueField (string, optional): what object key to use for values (default value)
+    - labelField (string, optional): what object key to use for labels (default label)
+    */
+
+    //handle checking or unchecking a value by appending or filtering it from the value array
     const toggleValue = (val) => {
         const updated = value?.includes(val)
             ? value.filter(v => v !== val)

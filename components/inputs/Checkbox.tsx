@@ -5,13 +5,16 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import StyledText from '../styledText';
 
 export default function Checkbox({ label, value, onChange, error }) {
+    /*
+    Simple toggle checkbox component that returns a boolean based on whether the value is checked.
+    - label (string): label to display next to checkbox
+    - value (boolean): controls checkbox status
+    - onChange (function): what to do when checkbox is checked/unchecked
+    - error (string, RHF): RHF error variable
+    */
     return (
         <View>
-            <TouchableOpacity
-                style={styles.container}
-                onPress={() => onChange(!value)}
-                activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.container} onPress={() => onChange(!value)} activeOpacity={0.7}>
                 <Ionicons
                     name={value ? 'checkbox' : 'square-outline'}
                     size={24}

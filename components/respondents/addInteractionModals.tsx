@@ -55,12 +55,14 @@ export function CommentModal({ onUpdate, onCancel, onClear, existing='' }){
                 animationType="slide"
             >
                 <View style={styles.modalContent}>
-                    <Input label={'Your Comment...'} value={comment} onChange={(v) => setComment(v)} />
+                    <Input label={'Your Comment...'} value={comment} onChange={(v) => setComment(v)} keyboard={'textarea'} style={{ width: '90%'}} />
                     {/* Slightly alter what the buttons do depending on if existing is passed */}
-                    {comment !== '' && <StyledButton onPress={handleUpdate} label={'Confirm'} />}
-                    {existing  != '' && <StyledButton onPress={() => onCancel()} label={'Cancel'} />}
-                    {existing != '' && <StyledButton onPress={handleClear} label={'Remove'} />}
-                    {existing  == '' && <StyledButton onPress={handleClear} label={'Cancel'} /> }
+                    <View style={styles.buttons}>
+                    {comment !== '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleUpdate} label={'Confirm'} />}
+                    {existing  != '' && <StyledButton style={{ marginEnd: 15 }} onPress={() => onCancel()} label={'Cancel'} />}
+                    {existing != '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleClear} label={'Remove'} />}
+                    {existing  == '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleClear} label={'Cancel'} /> }
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -94,12 +96,14 @@ export function NumberModal({ onUpdate, onCancel, onClear,  existing='' }){
         <View>
             <Modal transparent={true} visible={true} animationType="slide">
                 <View style={styles.modalContent}>
-                    <Input label={'Enter a number...'} value={number} onChange={(v) => setNumber(v)} keyboard={'numeric'} />
+                    <Input label={'Enter a number...'} value={number} onChange={(v) => setNumber(v)} keyboard={'numeric'} placeholder={'ex. 6'} />
                     {/* Slightly alter what the buttons do depending on if existing is passed */}
-                    {number !== '' && <StyledButton onPress={handleUpdate} label={'Confirm'} />}
-                    {existing  != '' && <StyledButton onPress={() => onCancel()} label={'Cancel'} />}
-                    {existing != '' && <StyledButton onPress={handleClear} label={'Remove'} />}
-                    {existing  == '' && <StyledButton onPress={handleClear} label={'Cancel'} /> }
+                    <View style={styles.buttons}>
+                    {number !== '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleUpdate} label={'Confirm'} />}
+                    {existing  != '' && <StyledButton style={{ marginEnd: 15 }} onPress={() => onCancel()} label={'Cancel'} />}
+                    {existing != '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleClear} label={'Remove'} />}
+                    {existing  == '' && <StyledButton style={{ marginEnd: 15 }} onPress={handleClear} label={'Cancel'} /> }
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -161,10 +165,12 @@ export function SubcategoryModal({ options, onUpdate, onCancel, onClear, numeric
                             <MultiCheckbox options={options} value={subcats} label='Please select all relevent subcategories' onChange={setSubcats} valueField={'id'} labelField={'name'} />}
                     </View>
                     {/* Slightly alter what the buttons do depending on if existing is passed */}
-                    {subcats.length > 0 && <StyledButton onPress={handleUpdate} label={'Confirm'} />}
-                    {existing.length > 0 && <StyledButton onPress={() => onCancel()} label={'Cancel'} />}
-                    {existing.length > 0 && <StyledButton onPress={handleClear} label={'Remove'} />}
-                    {existing.length === 0 && <StyledButton onPress={handleClear} label={'Cancel'} /> }
+                    <View style={styles.buttons}>
+                    {subcats.length > 0 && <StyledButton style={{ marginEnd: 15 }} onPress={handleUpdate} label={'Confirm'} />}
+                    {existing.length > 0 && <StyledButton style={{ marginEnd: 15 }} onPress={() => onCancel()} label={'Cancel'} />}
+                    {existing.length > 0 && <StyledButton style={{ marginEnd: 15 }}  onPress={handleClear} label={'Remove'} />}
+                    {existing.length === 0 && <StyledButton style={{ marginEnd: 15 }} onPress={handleClear} label={'Cancel'} /> }
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -186,4 +192,9 @@ const styles = StyleSheet.create({
     container: { 
         marginVertical: 10 
     },
+    buttons: {
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+    }
 })

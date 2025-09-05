@@ -4,6 +4,15 @@ import { StyleSheet, TextInput, View } from "react-native"
 import StyledText from "../styledText"
 
 export default function Input({ value, onChange, label, error, placeholder='', keyboard=null, style=null}){
+    /*
+    Keyboard input that returns a string.
+    - value (string/string convertible): value to display/control
+    - onChange (function): what to do when user is typing
+    - label (string): what the user should see above the input
+    - error (string, RHF): RHF error field
+    - placeholder (string, optional): placeholder text to show when no value is typed
+    - keyboard (string, optional): enter to display specific keyboard (i.e., numeric, email, phone), entering textarea will show multiline input
+    */
     return(
         <View style={[styles.field, , style]}>
             <StyledText type="defaultSemiBold">{label}</StyledText>
@@ -25,6 +34,7 @@ const styles = StyleSheet.create({
         padding: 15,
         backgroundColor: '#fff',
         height: 150,
+        textAlignVertical: 'top',
     },
     errorText:{
         color: theme.colors.errorText,

@@ -30,6 +30,8 @@ export class SpecialAttribute extends BaseModel {
         respondent: {type: 'text', relationship: {table: 'respondents', column: 'local_id'}},
         name: {type: 'text'},
     }
+
+    static relationships = [];
 }
 
 export class KPStatus extends BaseModel {
@@ -121,24 +123,29 @@ export class Respondent extends BaseModel {
     //custom save method that parses out m2o fields and saves them in the correct table
     static async save(data, id, col = 'id') {
         const { special_attribute=[], kp_status = [], disability_status = [], ...mainData } = data;
-        const newUUID = randomUUID(); //will serve as the primary key and the link key
+        const newUUID = data?.local_id ? data.local_id : randomUUID(); //will serve as the primary key and the link key
         const link = await RespondentLink.save({ uuid: newUUID });
         mainData.local_id = newUUID
         // Save main record first
         const savedId = await super.save(mainData, id, col);
+        console.log(newUUID)
         // Save related KP statuses
+        await KPStatus.delete(newUUID, 'respondent');
         for (const kp of kp_status) {
-            await KPStatus.save({ name: kp, respondent: newUUID });
+            const results = await KPStatus.filter({name: kp, respondent: newUUID});
+            if(!results || results.length == 0) await KPStatus.save({ name: kp, respondent: newUUID });
         }
-
+        await DisabilityStatus.delete(newUUID, 'respondent');
         // Save related disability statuses
         for (const dis of disability_status) {
-            await DisabilityStatus.save({ name: dis, respondent: newUUID });
+            const results = await DisabilityStatus.filter({name: dis, respondent: newUUID});
+            if(!results || results.length == 0) await DisabilityStatus.save({ name: dis, respondent: newUUID });
         }
-
+        await SpecialAttribute.delete(newUUID, 'respondent');
         // Save related special attributes
         for (const attr of special_attribute) {
-            await SpecialAttribute.save({ name: attr, respondent: newUUID });
+            const results = await SpecialAttribute.filter({name: attr, respondent: newUUID});
+            if(!results || results.length == 0) await SpecialAttribute.save({ name: attr, respondent: newUUID });
         }
         return newUUID; // Return id so caller can fetch full object if needed
     }
@@ -161,6 +168,7 @@ export class Respondent extends BaseModel {
             ser.pregnancy_data = ser.pregnancies
             toSync.push(ser);
         }
+        console.log(toSync)
         try{
             console.log('uploading respondents', toSync);
             const response = await fetchWithAuth(`/api/record/respondents/mobile/`, {

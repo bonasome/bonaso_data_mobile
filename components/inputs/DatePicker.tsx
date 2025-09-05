@@ -6,7 +6,15 @@ import StyledText from "../styledText";
 import StyledButton from './StyledButton';
 
 export default function DatePicker({ value, onChange, error, label, name }){
-    const [showDate, setShowDate] = useState(false);
+    /*
+    Component that allows a user to select a datetime from a calendar.
+    - value (datetime object): the value to use/set
+    - onChange(function): what to do on date select
+    - error (string, RHF): display RHF errors
+    - label (string): text to display to user
+    - name (string): name reference
+    */
+    const [showDate, setShowDate] = useState(false); //controls whether date selector calendar is visible
 
     return(
         <View>
@@ -19,13 +27,13 @@ export default function DatePicker({ value, onChange, error, label, name }){
                 </TouchableOpacity>
                 {showDate && (
                     <DateTimePicker
-                    value={new Date(value)}
-                    mode="date"
-                    display="default"
-                    onChange={(_, selectedDate) => {
-                        setShowDate(false);
-                        if (selectedDate) onChange(selectedDate);
-                    }}
+                        value={value ? new Date(value) : new Date()} //set default value to today to prevent users having to scroll from the 70s
+                        mode="date"
+                        display="default"
+                        onChange={(_, selectedDate) => {
+                            setShowDate(false);
+                            if (selectedDate) onChange(selectedDate);
+                        }}
                     />
                 )}
                 {value && <StyledButton onPress={() => onChange(null)} label={'Clear Date'} style={{ marginStart: 'auto' }} />}

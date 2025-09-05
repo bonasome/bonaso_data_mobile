@@ -232,7 +232,9 @@ export default function CreateRespondent() {
             }
             //if respondent is not in server, create or update local record
             else{
-                let result = existing ? await Respondent.save(data, existing.local_id, 'local_id') : await Respondent.save(data); //save locally first
+                data.local_id = localId ? localId : null;
+                console.log('saving locally...')
+                let result = existing ? await Respondent.save(data, localId, 'local_id') : await Respondent.save(data); //save locally first
                 //if connected, try to upload the data
                 if (isServerReachable) {
                     try {

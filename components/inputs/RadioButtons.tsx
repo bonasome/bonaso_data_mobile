@@ -3,24 +3,35 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import StyledText from '../styledText';
-export default function RadioButtons({ options, value, label, onChange, error }) {
+export default function RadioButtons({ options, value, label, onChange, error, valueField='value', labelField='label' }) {
+    /*
+    Allows a user to select a single item from a list. Returns a single value. Preferred for shorter lists,
+    but for longer lists (over 5-7 values), you should probably use the SimplePicker component. 
+    - options (array): Array of objects to display. Needs a a value field (what to return) and a label field (what to display next to the checkbox)
+    - value (value): selected value (string, number, etc.)
+    - label (string): what text to display at the top of the component
+    - onChange (function): what to do when values are selected or unselected
+    - error (string, RHF): RHF error field
+    - valueField (string, optional): what object key to use for values (default value)
+    - labelField (string, optional): what object key to use for labels (default label)
+    */
     return (
         <View style={styles.container}>
             <StyledText type='defaultSemiBold' style={{ marginBottom: 4 }}>{label}</StyledText>
             {options.map(item => {
                 return (
                     <TouchableOpacity
-                        key={item.value}
+                        key={item[valueField]}
                         style={styles.buttonContainer}
                         onPress={() => onChange(item.value)}
                         activeOpacity={0.7}
                     >
                         <Ionicons
-                            name={item.value == value ? 'radio-button-on-sharp' : 'radio-button-off-sharp'}
+                            name={item[valueField] == value ? 'radio-button-on-sharp' : 'radio-button-off-sharp'}
                             size={24}
-                            color={item.value == value ? '#fff' : '#fff'}
+                            color={item[valueField] == value ? '#fff' : '#fff'}
                         />
-                        <StyledText type='defaultSemiBold' style={styles.buttonLabel}>{item.label}</StyledText>
+                        <StyledText type='defaultSemiBold' style={styles.buttonLabel}>{item[labelField]}</StyledText>
                     </TouchableOpacity>
                 );
             })}
