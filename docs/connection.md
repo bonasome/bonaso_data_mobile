@@ -25,7 +25,6 @@ The BONASO Data Portal Server handles most of the authentication, but the mobile
 ---
 
 ## Offline/Online Considerations
-
 - **Online mode** mirrors the website and always pulls the latest data.  
 - **Offline mode** uses only local data (synced tasks, locally saved respondents, interactions).  
 - **Safety:** All new respondents/interactions are first saved locally, then uploaded automatically if online. Otherwise, they sync once the server is reachable again.  
@@ -34,7 +33,7 @@ The BONASO Data Portal Server handles most of the authentication, but the mobile
 
 ## ID Management
 
-To avoid conflicts between local and server records, the app uses a **RespondentLink** model:  
+To avoid conflicts between local and server records, the app uses a **RespondentLink** model (see [RespondentLink](/database/ORM/tables/respondents.js)):  
 - Each respondent gets a unique local UUID.  
 - If also synced with the server, a `server_id` is linked.  
 - Components accept either `localId` or `serverId` params to fetch data from the right source.  
@@ -43,8 +42,8 @@ To avoid conflicts between local and server records, the app uses a **Respondent
 
 ## Connection Context
 
-The Connection Context wrapper (`context/ConnectionContext.tsx`):  
+The [`ConnectionContext`](/context/ConnectionContext.tsx) wrapper:  
 - Checks connectivity on every API request, or every 60 seconds by default.  
 - Sets `isConnected` = false if no connection is found.  
 - Sets `isServerReachable` = false if connected but the server is down.  
-- Developers can trigger a manual check via the **sync button** in the header (`components/header.tsx`).  
+- Developers can trigger a manual check via the **sync button** in the [`header.tsx`](/components/header.tsx).

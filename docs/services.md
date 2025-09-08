@@ -4,7 +4,20 @@ The [services] folder provides utility functions and helpers that standardize co
 
 This document is intended as a quick reference. For complex logic or specific use cases, see the linked component files.
 
-## fetchWithAuth ([services/fetchWithAuth.js])
+---
+
+## Contents
+
+- [FetchWithAuth](#fetchwithauth)
+- [AuthServices](#authservices)
+- [cleanLabels](#cleanlabels)
+- [checkServerConnection](#checkserverconnection)
+- [syncMeta](#syncmeta)
+- [syncTasks](#synctasks)
+
+---
+
+## [fetchWithAuth](/services/fetchWithAuth.js)
 This is a helper function that expands on the native fetch by helping to manage token authentication. For more detail, see [docs/auth.md]
 
 **Example Usage**
@@ -13,10 +26,10 @@ const response = await fetchWithAuth("/api/manage/projects/");
 const data = await response.json();
 ```
 
-## authServices ([services/authServices.js])
+## [authServices](/services/authServices.js)
 This is a helper function that translates some of the features found in [src/contexts/AuthContext.tsx] into vanilla JS so that fetchWithAuth can also use them. 
 
-## cleanLabels ([services/cleanLabels.js])
+## [cleanLabels](/services/cleanLabels.js)
 Since our database often sends hard-to-read labels that include underscores or all lowercase words, this function tries to help make these more readable by splitting words, capitalizing, and spelling out some common abbreviations. It can be used instead of a full value/label map sometimes. 
 
 **Example Usage**
@@ -27,7 +40,7 @@ Since our database often sends hard-to-read labels that include underscores or a
 ```
 Returns : Example Of Clean Labels
 
-## secureStorage ([services/secureStorage.js])
+## secureStorage(/services/secureStorage.js)
 Contains helper functions that get/store/delete SecureSave items. 
 
 **Example Usage**: 
@@ -37,7 +50,7 @@ await getSecureItem('name'); //returns value
 await deleteSecureItem('name');
 ```
 
-## checkServerConnection ([services/checkServerConnection.js])
+## [checkServerConnection](/services/checkServerConnection.js)
 Checks a lightweight API to see if the server is reachable. Returns a boolean. 
 
 **Example Usage**:
@@ -48,8 +61,8 @@ if(serverResponse){
 }
 ```
 
-## syncMeta ([services/syncMeta.js])
-Helper function that retrieves the respondent meta from the server and then parses/saves it to the local database. 
+## [syncMeta](/services/syncMeta.js)
+Helper function that retrieves the respondent meta from the server and then parses/saves it to the local database. By default will only do this once every 12 hours (as stored in the [SyncRecords](/database/ORM/tables/meta.js)) table, unless forceUpdate is true. 
 
 **Example Usage**:
 ```javascript
@@ -58,8 +71,8 @@ const meta = response.json();
 setMeta(meta)
 ```
 
-## syncTasks ([services/syncTasks.js])
-Helper function that retrieves the a user's tasks from the server and downloads them to the database. 
+## [syncTasks](/services/syncTasks.js)
+Helper function that retrieves the a user's tasks from the server and downloads them to the database. By default will only do this once every 12 hours (as stored in the [SyncRecords](/database/ORM/tables/meta.js)) table, unless forceUpdate is true. 
 
 **Example Usage**:
 ```javascript

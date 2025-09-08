@@ -14,8 +14,8 @@
 The **BONASO Data Portal** enables community health workers and coordinators to capture and analyze client and project data from across the country in real time. It is a network of tools that work together to collect and retrieve data on the web and mobile applications.
 
 This document describes the **mobile application**. For additional context, see:  
-- [Backend – BONASO Data Portal Server (Django + PostgreSQL)](../bonaso_data_server/README.md)  
-- [Frontend – BONASO Data Portal Web (React)](../bonaso_data_web/README.md)  
+- [**Backend:**](https://github.com/bonasome/bonaso_data_server) BONASO Data Portal Server (Django + PostgreSQL)  
+- [**Web UI:**](https://github.com/bonasome/bonaso_data_web) BONASO Data Portal Website (React + Vite)  
 
 The mobile application is designed for community health workers in the field, with support for **offline data entry** via local SQLite storage.
 
@@ -33,7 +33,7 @@ The mobile app:
 - Retrieves most data from the backend via **REST APIs**.  
 - Submits new/updated data back to the server via these APIs.  
 
-See [sitemap.md](docs/sitemap.md) for a full outline of routes and features.  
+See [sitemap.md](/docs/sitemap.md) for a full outline of routes and features.  
 
 ---
 
@@ -50,13 +50,13 @@ See [sitemap.md](docs/sitemap.md) for a full outline of routes and features.
 ---
 
 ## 4. Next Steps
-- [Setup](docs/setup.md)  
-- [Sitemap](docs/sitemap.md)  
-- [Global Helper Functions](docs/services.md)  
-- [Global Components](docs/components.md)  
-- [Custom ORM](docs/orm.md)  
-- [Connection](docs/connection.md)  
-- [User Authentication](docs/auth.md)  
+- [Setup](/docs/setup.md)  
+- [Sitemap](/docs/sitemap.md)  
+- [Global Helper Functions](/docs/services.md)  
+- [Global Components](/docs/components.md)  
+- [Custom ORM](/docs/orm.md)  
+- [Connection](/docs/connection.md)  
+- [User Authentication](/docs/auth.md)  
 
 
 ---

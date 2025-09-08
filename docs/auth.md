@@ -12,7 +12,7 @@ When the device is online, the user enters their username and password. This sen
 
 Upon successful online login, the username and a bcrypt-hashed password are stored in secure storage. This enables offline login later.
 
-See the login flow at [app/login/index.tsx].
+See the login flow [here](/app/login/index.tsx).
 
 ### 1.2 Offline Login
 
@@ -22,13 +22,13 @@ No access or refresh tokens are available in this mode.
 
 The user cannot make API calls until they log in online again.
 
-See offline login logic at [services/offlineLogic.js].
+See offline login logic [here](/services/offlineLogic.js).
 
 ---
 
 ## 2. Token Management
 
-The mobile app uses access and refresh tokens stored and managed in context/AuthContext.tsx.
+The mobile app uses access and refresh tokens stored and managed in [AuthContext](/context/AuthContext.tsx).
 
 Tokens must be sent with all API requests, except for login. If the access token has expired, the app automatically uses the refresh token to obtain a new access token.
 
@@ -40,17 +40,17 @@ Tokens are not used during offline login since no API calls are possible.
 
 For security, users are automatically signed out if inactive (no screen interaction) for 5 minutes.
 
-See details at [context/InactivityContext.tsx].
+See details [here](/context/InactivityContext.tsx).
 
 ---
 
 ## 4. Fetch With Auth
 
-All API requests (except login) should use the fetchWithAuth helper (services/fetchWithAuth.js). This function:
+All API requests (except login) should use the [fetchWithAuth](/services/fetchWithAuth.js) helper. This function:
 
-Attempts the API request.
+1. Attempts the API request.
 
-If the access token is expired:
+2. If the access token is expired:
     - Calls the refresh function ([src/contexts/UserAuth.jsx]) to obtain a new token.
     - Halts any simultaneous requests until the new token is available to prevent race conditions.
     - Retries the original request once a valid token is obtained.
@@ -58,10 +58,3 @@ If the access token is expired:
 This simplifies request handling by automatically including headers, managing tokens, and preventing failures due to expired access tokens.
 
 ---
-
-## Further References
-[context/AuthContext.tsx] – token storage and management
-[context/InactivityContext.tsx] – inactivity logout logic
-[app/login/index.tsx] – login flow
-[services/offlineLogic.js] – offline login handling
-[services/fetchWithAuth.js] – authenticated API requests
