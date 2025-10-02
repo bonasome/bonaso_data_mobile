@@ -53,9 +53,9 @@ All of the apps content (except for login) should be placed within the authoriza
 **Description**: Detail view for a specific respondent that also allows a user to view/create interactions for that respondent. 
 
 **Main Component**: [RespondentDetail](/app/authorized/(tabs)/respondents/id.tsx)
-    - **Relies on Components**:
-        - [AddInteractions](/components/respondents/addInteraction.tsx): For creating new interactions for a respondent.
-        - [Interactions](/components/respondents/interactions.tsx): For viewing a list of previous respondent interactions and a link to edit the interaction.
+- **Relies on Components**:
+    - [AddInteractions](/components/respondents/addInteraction.tsx): For creating new interactions for a respondent.
+    - [Interactions](/components/respondents/interactions.tsx): For viewing a list of previous respondent interactions and a link to edit the interaction.
 
 **Notes**: When routing to the [detail](/app/authorized/(tabs)/respondents/[id].tsx) file, prefix any local ids with a '-'. Server ids do not need to be prefixed. This is how the component knows whether to contact the server or pull from the database.
 
