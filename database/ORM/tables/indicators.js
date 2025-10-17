@@ -1,52 +1,61 @@
 import BaseModel from "../base";
 
-export class RequiredAttribute extends BaseModel {
+export class LogicCondition extends BaseModel {
     /*
     Stores an indicator's attributes (m2o through)
     */
-    static table = 'required_attributes';
+    static table = 'logic_conditions';
 
     static fields = {
-        indicator: {type: 'integer', relationship: {table: 'indicators', column: 'id'}},
-        name: {type: 'text'},
+        group: { type: 'integer', relationship: { table: 'logic_groups', column: 'id' }},
+        source_type: {type: 'text'},
+        source_indicator: {type: 'integer', allow_null: true, relationship: {table: 'indicators', column: 'id'}},
+        value_option: { type: 'integer', allow_null: true},
+        value_text: { type: 'text', allow_null: true},
+        value_boolean: { type: 'integer', allow_null: true },
+
+        respondent_field: { type: 'text', allow_null: true },
+        operator: { type: 'text' },
+        condition_type: { type: 'text', allow_null: true},
     }
-    static relationships = [];
+    static get relationships() {
+        const { Indicator, Option } = require('./indicators'); // or dynamic import
+        return [ 
+            { model: Indicator, field: 'source_indicator', name: 'indicators', relCol: 'id', thisCol: 'source_indicator', onDelete: 'cascade', fetch: true, many: false }, 
+            { model: Option, field: 'value_option', name: 'options', relCol: 'id', thisCol: 'value_option', onDelete: 'cascade', fetch: true, many: false },
+        ];
+    }
 }
 
-export class IndicatorSubcategory extends BaseModel {
+export class LogicGroup extends BaseModel {
     /*
     Stores an indicator's subcategories (m2o through)
     */
-    static table = 'indicator_subcategories';
+    static table = 'logic_groups';
     
     static fields = {
         indicator: {type: 'integer', relationship: {table: 'indicators', column: 'id'}},
         id: {type: 'integer', primary: true},
-        name: {type: 'text'},
+        group_operator: {type: 'text'},
     }
-    static relationships = []
+    static relationships = [
+        {model: LogicCondition, field: 'conditions', name: 'logic_conditions', relCol: 'group', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+    ]
 }
 
-export class IndicatorPrerequisite extends BaseModel {
+export class Option extends BaseModel {
     /*
     Stores an indicator's prerequisite indicator's (m2o through)
     */
-    static table = 'indicator_prerequisites';
+    static table = 'options';
 
     static fields = {
-        dependent_id: {type: 'integer', relationship: {table: 'indicators', column: 'id'}},
-        prerequisite_id: {type: 'integer', relationship: {table: 'indicators', column: 'id'}},
+        id: { type: 'integer' },
+        indicator: { type: 'integer', relationship: {table: 'indicators', column: 'id'} },
+        name: { type: 'text' },
     }
-    static rules = [
-        {rule: 'unique', col1: 'dependent_id', col2: 'prerequisite_id'}
-    ]
     //on serialize, get deails about the prerequisite indicator
-    static get relationships() {
-        const { Indicator } = require('./indicators'); // or dynamic import
-        return [
-             {model: Indicator, field: 'indicator', name: 'indicator', relCol: 'id', thisCol: 'prerequisite_id', onDelete: 'cascade', fetch: true, many: false}, 
-        ];
-  }
+    static relationships = [];
 }
 
 export class Indicator extends BaseModel {
@@ -58,6 +67,7 @@ export class Indicator extends BaseModel {
     
     static fields = {
         id: {type: 'integer', primary: true},
+        assessment: { type: 'integer', relationship: {table: 'assessments', column: 'id'}},
         code: {type: 'text'},
         name: {type: 'text'},
         description: {type: 'text'},
@@ -67,7 +77,7 @@ export class Indicator extends BaseModel {
     }
 
     static relationships = [
-        {model: IndicatorPrerequisite, field: 'prerequisites', name: 'indicator_prerequisites', relCol: 'dependent_id', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+        {model: Option, field: 'options', name: 'options', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', onDelete: 'cascade', fetch: true, many: true}, 
         {model: IndicatorSubcategory, field: 'subcategories', name: 'indicator_subcategories', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
         {model: RequiredAttribute, field: 'required_attributes', name: 'required_attributes', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
     ]
@@ -84,4 +94,18 @@ export class Indicator extends BaseModel {
     }
 }
 
+export class Assessment extends BaseModel {
+    static table = 'assessments';
+
+    static fields = {
+        id: { type: 'integer', primary: true},
+        name: { type: 'text'},
+        description: { type: 'text', allow_null: true}
+    }
+
+    static relationships = [
+        { model: Indicator, field: 'indicators', name: 'indicators', relCol: 'assessment', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true }
+    ]
+
+}
 

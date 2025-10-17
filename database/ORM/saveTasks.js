@@ -1,5 +1,5 @@
 import openDB from '@/database/dbManager';
-import { Indicator, IndicatorPrerequisite, IndicatorSubcategory, RequiredAttribute } from './tables/indicators';
+import { Indicator, Assessment, Option, LogicCondition, LogicGroup } from './tables/indicators';
 import { Organization, Project, Task } from './tables/tasks';
 
 async function clearTables(){
@@ -8,7 +8,7 @@ async function clearTables(){
     */
     const db = await openDB();
     //cascade might take care of all of these but play it safe
-    const tables = ['tasks', 'projects', 'organizations', 'indicator_subcategories', 'indicators']
+    const tables = ['tasks', 'projects', 'organizations', 'assessments', 'indicators', 'options', 'logic_groups', 'logic_conditions']
     for(const table of tables){
         await db.runAsync(`DELETE FROM ${table}`);
     }
@@ -30,7 +30,7 @@ export default async function saveTasks(data){
             display_name: item.display_name,
             organization: item.organization.id,
             project: item.project.id,
-            indicator: item.indicator.id
+            assessment: item.assessment.id
         };
         await Task.save(task);
         
@@ -50,47 +50,57 @@ export default async function saveTasks(data){
         }
         await Organization.save(organization);
 
+        const ass = item.assessment;
+
         //parse out and save indicator data
-        const indicator = {
-            id: item.indicator.id,
-            code: item.indicator.code,
-            name: item.indicator.name,
-            description: item.indicator.description,
-            require_numeric: item.indicator.require_numeric,
-            allow_repeat: item.indicator.allow_repeat,
-            match_subcategories_to: item.indicator.match_subcategories_to,
+        const assessment= {
+            id: ass.id,
+            name: ass.name,
         }
-        await Indicator.save(indicator);
-
-        //parse out and save indicaotr subcategory data (unless matched, in which case serialization will handle it)
-        if(item.indicator.subcategories.length > 0 && !item.indicator.match_subcategories_to){
-            for(const subcat of item.indicator.subcategories){
-                const is = {
-                    indicator: item.indicator.id,
-                    id: subcat.id,
-                    name: subcat.name
-                }
-                await IndicatorSubcategory.save(is)
+        await Assesment.save(assessment);
+        
+        for(const ind of ass.indicators){
+            const indicator = {
+                id: ind.id,
+                name: ind.name,
+                required: ind.required,
+                type: ind.type,
+                match_options: ind.match_options,
+                allow_none: ind.allow_none,
+                order: ind.order,
             }
-        }
-        //parse out and save indicator prerequisite data
-        if(item.indicator.prerequisites.length > 0){
-            for(const prereq of item.indicator.prerequisites){
-                const ip = {
-                    dependent_id: item.indicator.id,
-                    prerequisite_id: prereq.id
+            Indicator.save(indicator)
+            if(['multi', 'single'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
+                for(const o of ind.options){
+                    const option = {
+                        id: o.id,
+                        name: o.name,
+                        indicator: ind.id
+                    }
+                    Option.save(option)
                 }
-                await IndicatorPrerequisite.save(ip)
             }
-        }
-
-        if(item.indicator.required_attributes.length > 0){
-            for(const attr of item.indicator.required_attributes){
-                const data = {
-                    indicator: item.indicator.id,
-                    name: attr.name,
+            if(ind.logic.group_operator && ind.logic.conditions.length > 0){
+                const  group = {
+                    id: ind.logic.id,
+                    indicator: ind.id,
+                    group_operator: logic.group_operator
                 }
-                await RequiredAttribute.save(data);
+                LogicGroup.save(group);
+                for(const c of ind.logic.conditions){
+                    condition = {
+                        group: ind.logic.id,
+                        source_type: c.source_type,
+                        source_indicator: c.source_indicator,
+                        respondent_field: c.respondent_field,
+                        operator: c.operator,
+                        value_text: c.value_text,
+                        value_option: c.value_option.id,
+                        value_boolean: c.value_boolean ? 1 : 0,
+                        condition_type: c.condition_type,
+                    }
+                    LogicCondition.save(condition);
+                }
             }
         }
     }
