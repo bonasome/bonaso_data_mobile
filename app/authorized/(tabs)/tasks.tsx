@@ -1,82 +1,49 @@
 import IndexWrapper from "@/components/IndexWrapper";
+import StyledButton from "@/components/inputs/StyledButton";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import { SpecialRespondentAttribute } from "@/database/ORM/tables/meta";
 import { Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
-
-function TaskCard({ task }) {
+function TaskCard({ task, localRespondent=null, serverRespondent=null }) {
     /*
     Card that displays information about a task and its associated indicator. 
     - task (object): The task to display information about
     */
+   const router= useRouter();
     const [expanded, setExpanded] = useState(false);
     const [labels, setLabels] = useState({});
 
-    //convert respondent DB values to readable labels based on the locally stored respondents meta
-        useEffect(() => {
-            const getLabels = async() => {
-                const required_attributes = await Promise.all(task?.indicator?.required_attributes?.map(a => SpecialRespondentAttribute.getLabel(a.name))) ?? [];
-                setLabels({
-                    required_attributes: required_attributes
-                })
-            }
-            getLabels();
-        }, [task]);
-
+    if(!task) return <LoadingSpinner />
     return(
         <View style={styles.card}>
             <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ marginBottom: 5 }}>
-                {task?.indicator && <StyledText type='defaultSemiBold' >{task.display_name}</StyledText>}
+                {task?.assessment && <StyledText type='defaultSemiBold' >{task.display_name}</StyledText>}
             </TouchableOpacity>
 
             {expanded &&  <View style={{ marginBottom: 5, marginTop: 10 }}>
-                {task?.indicator?.description ? <StyledText style={{ marginBottom: 5 }}>{task.indicator.description}</StyledText> : <StyledText>No description.</StyledText>}
-                {task.indicator.prerequisites.length > 0 && <View style={{borderWidth: 2, borderColor: theme.colors.warning, backgroundColor: theme.colors.warningBg, padding: 5 }}>
-                    <StyledText type="defaultSemiBold" style={{ color: theme.colors.warningText }}>Prerequisite Indicators</StyledText>
-                    {task.indicator.prerequisites.map((p) => (
-                        <View key={p.id} style={styles.li}>
-                            <StyledText style={[styles.bullet, {color: theme.colors.warningText}]}>{'\u2022'}</StyledText> 
-                            <StyledText style={{ color: theme.colors.warningText }}>{`${p.indicator.code}: ${p.indicator.name}`}</StyledText>
-                        </View>
-                    ))}
-                </View>}
-
-                {task.indicator.subcategories.length > 0 && <View style={{ marginBottom: 5 }}>
-                    <StyledText type="defaultSemiBold">Subcategories</StyledText>
-                    {task.indicator.subcategories.map((cat) => (
-                        <View key={cat.id} style={styles.li}>
-                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                            <StyledText>{cat.name}</StyledText>
-                        </View>
-                    ))}
-                </View>}
-
-                {task.indicator.required_attributes.length > 0 && <View style={{ marginBottom: 5 }}>
-                    <StyledText type="defaultSemiBold">Requires Respondent Attribute</StyledText>
-                    {labels?.required_attributes.map((attr) => (
-                        <View key={attr} style={styles.li}>
-                            <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
-                            <StyledText>{attr}</StyledText>
-                        </View>
-                    ))}
-                </View>}
-                
-                {task.indicator.require_numeric && <View style={{ borderWidth: 2, borderColor: theme.colors.warning, backgroundColor: theme.colors.warningBg, padding: 5}}>
-                    <StyledText type="defaultSemiBold" style={{ marginBottom: 5, color: theme.colors.warningText }}>Requires a number!</StyledText>
-                </View>}
-
+                {task?.assessment?.description ? <StyledText style={{ marginBottom: 5 }}>{task.indicator.description}</StyledText> : <StyledText>No description.</StyledText>}
+                {task.assessment.indicators.sort((a, b) => (a.indicator_order-b.indicator_order)).map((ind) => (
+                    <View>
+                        <StyledText>{ind.indicator_order + 1}. {ind.name}</StyledText>
+                    </View>
+                ))}            
             </View>}
+            {(localRespondent || serverRespondent) && <StyledButton onPress={() => router.push({
+                    pathname: '/authorized/(tabs)/respondents/forms/interactionForm',
+                    params: { taskId: task.id, respondentId: serverRespondent, localRespondentId: localRespondent}
+                })} label={`Start ${task?.assessment?.name}`} />}
         </View>
     )
 }
 
-export default function Tasks() {
+export default function Tasks({ localRespondent=null, serverRespondent=null }) {
     /*
     Component that displays a list of tasks from the local database. 
     */
@@ -110,7 +77,7 @@ export default function Tasks() {
             <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
                 <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
                 {tasksToMap.length > 0 && tasksToMap.map((t) => (
-                    <TaskCard key={t.id} task={t} />
+                    <TaskCard key={t.id} task={t} localRespondent={localRespondent} serverRespondent={serverRespondent} />
                 ))}
                 {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
             </IndexWrapper>

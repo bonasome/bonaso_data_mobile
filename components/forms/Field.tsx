@@ -15,7 +15,7 @@ export default function Field({ field, control }) {
     - field (object): information to construct the input (see below)
     - control (RHF control): form controller
     */
-    const { type, name, rules, label, placeholder, options,  labelField, valueField } = field;
+    const { type, name, rules, label, placeholder, options,  labelField, valueField, } = field;
     /*
     FIELD INFO:
     - type (string): what type of input this is, see the case switch below. 
@@ -27,6 +27,7 @@ export default function Field({ field, control }) {
     - labelField (string, optional): what object key to use as the label (default is 'label')
     - labelField (string, optional): what object key to use as the value (default is 'value')
     */
+   const customOnChange = field.onChange;
     return (
             <Controller
                 name={name}
@@ -37,6 +38,13 @@ export default function Field({ field, control }) {
                         ...controllerField,
                         label,
                         error: fieldState.error ? fieldState.error.message : null,
+                         onChange: (value) => {
+                            // first call custom handler if it exists
+                            if (customOnChange) value = customOnChange(value);
+
+                            // then call RHF's controller onChange to update form state
+                            controllerField.onChange(value);
+                        }
                     };
 
                     //return correct component based on the tyoe

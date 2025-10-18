@@ -1,102 +1,140 @@
+import LoadingScreen from "@/components/Loading";
 import FormSection from "@/components/forms/FormSection";
 import StyledButton from "@/components/inputs/StyledButton";
-import LoadingScreen from "@/components/Loading";
 import StyledScroll from "@/components/styledScroll";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
+import { Respondent } from "@/database/ORM/tables/respondents";
+import { Task } from "@/database/ORM/tables/tasks";
 import checkDate from "@/services/checkDate";
 import fetchWithAuth from "@/services/fetchWithAuth";
+import { calcDefaultLocal, calcDefaultServer } from '@/services/interactions/calcDefault';
 import prettyDates from "@/services/prettyDates";
+import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { FormProvider, useForm } from "react-hook-form";
+import { KeyboardAvoidingView, Platform } from "react-native";
+import ResponseField from '../../../../../components/respondents/responseField';
 
-export default function EditInteraction(){
-    /*
-    Component that allows a user to edit an existing interaction (either stored on the server or locally
-    stored). Accepts a localId or serverId URL param which will point to either the server record or the local
-    record that the user intends to edit and load default values based on that. 
-    */
-
+export default function AssessmentForm(){
     const router = useRouter();
-    //connection/auth contexts
-    const { isServerReachable } = useConnection();
     const { offlineMode } = useAuth();
-
-    const { localId, serverId } = useLocalSearchParams(); //URL params to fetch correct record
-
-    const [redirectId, setRedirectId] = useState(''); //what id to use when redirecting the user back to the respondent detail page
     
-    const [existing, setExisting] = useState(null); //existing record
-    const [loading, setLoading] = useState(false);
-    //fetch the existing record
+    const { isServerReachable } = useConnection(); 
+    const { respondentId, localRespondentId, taskId, serverIrId, localIrId } = useLocalSearchParams()
+    const [existing, setExisting] = useState(null);
+
+    const [task, setTask] = useState(null);
+    const [respondent, setRespondent] = useState(null);
+    const [redirectId, setRedirectId] = useState('')
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+
+    //load tasks by default
     useEffect(() => {
-        //if local ID param is passed, find it from the local database
-        if (localId) {
-            (async () => {
-                setLoading(true);
-                const found = await Interaction.find(localId);
-                const serialized = await found?.serialize();
-                setExisting(serialized);
-                setRedirectId(`-${serialized.respondent_uuid}`); //set redirect ID to the interaction's respondent
-                setLoading(false);
-            })();
-        }
-        //if server ID is passed, 
-        if(serverId) {
-            (async () => {
+        if(!taskId) return;
+        const loadTasks = async () => {
+            setLoading(true);
+            if (isServerReachable){
+                await syncTasks(); //try to fetch online if tasks are over 12 hours old
+            }   
+            const myTasks = await Task.find(taskId);
+            if(!myTasks) return;
+            let serialized = await myTasks.serialize();
+            setTask(serialized);
+            setLoading(false);
+        };
+        loadTasks();
+    }, [isServerReachable, taskId]);
+
+    useEffect(() => {
+        const getInteraction = async () => {
+            if(serverIrId){
                 try {
-                    setLoading(true);
-                    const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`);
+                    console.log('fetching indicator details...');
+                    const response = await fetchWithAuth(`/api/record/interactions/${serverIrId}/`);
                     const data = await response.json();
-                    if (response.ok) {
+                    if(response.ok){
+                        //update the context
                         setExisting(data);
-                        setRedirectId(data.respondent); //set redirect ID to the interaction's respondent
-                    } 
-                    else {
-                        console.error('Server error:', response.status);
+                        setRespondent(data.respondent)
+                        setRedirectId(data.respondent.id)
                     }
                 } 
                 catch (err) {
-                    console.error('Error fetching respondent', err);
+                    console.error('Failed to fetch interaction: ', err);
+                } 
+                finally {
+                    setLoading(false);
+                }
+            }
+            else if(localIrId){
+                try{
+                    setLoading(true);
+                    const found = await Interaction.find(localIrId);
+                    const serialized = await found?.serialize();
+                    setExisting(serialized);
+                    setRedirectId(`-${serialized.respondent_uuid}`); //set redirect Id to the interaction's respondent
+                }
+                catch(err){
+                    console.error('Failed to fetch local interaction: ', err)
                 }
                 finally{
                     setLoading(false);
                 }
-            })();
-        }
-    }, [localId, serverId]);
-
-    //allow the user to delete an interaction that has not yet been uploaded to the server
-    const handleDelete = async() => {
-        try{
-            if(existing?.id){
-                await Interaction.delete(existing.id)
             }
-            router.push(`/authorized/(tabs)/respondents/${redirectId}`)
         }
-        catch(err){
-            console.error(err);
-        }
-    }
+        getInteraction();
+    }, [localIrId, serverIrId]);
 
-    //handle submission
+    useEffect(() => {
+        const getRespondentDetails = async () => {
+            if(respondentId && isServerReachable){
+                try {
+                    console.log('fetching indicator details...');
+                    const response = await fetchWithAuth(`/api/record/respondents/${respondentId}/`);
+                    const data = await response.json();
+                    if(response.ok){
+                        setRespondent(data);
+                    }
+                } 
+                catch (err) {
+                    console.error('Failed to fetch respondent: ', err);
+                } 
+                finally {
+                    setLoading(false);
+                }
+            }
+            else if(localRespondentId){
+                try{
+                    setLoading(true);
+                    const found = await Respondent.find(localRespondentId, 'local_id');
+                    const serialized = await found?.serialize();
+                    setRespondent(serialized);
+                }
+                catch(err){
+                    console.error('Failed to fetch local respondent: ', err)
+                }
+                finally{
+                    setLoading(false);
+                }
+            }
+        };
+        getRespondentDetails();
+    }, [respondentId, localRespondentId]);
+
     const onSubmit = async (data) => {
-        //make sure interaction date is valid
-        data.interaction_date = checkDate(data.interaction_date); //will return ISO string if ISO string (default) or date object (has been edited)
-        if(!data.interaction_date){
-            alert('A valid interaction date is Required.');
-            return;
-        }
+        data.respondent_uuid = localRespondentId;
+        data.task_id = taskId;
+
         //make sure date is within the project range and not in the future
         const projectStart = new Date(existing?.task?.project?.start);
         const projectEnd = new Date(existing?.task?.project?.end);
         const interactionDate = new Date(data.interaction_date);
-
-        // midnight today (strip time)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         interactionDate.setHours(0,0,0,0)
@@ -113,23 +151,25 @@ export default function EditInteraction(){
             alert('Interaction location is required.');
             return;
         }
-
-        let result = null; //placeholder to track saved ID
-
+        data.interaction_date = checkDate(data.interaction_date)
+        let result = null; //placeholder to track saved Id
         //if online, try to upload changes directly
-        if(serverId && isServerReachable && !offlineMode){
+        console.log(serverIrId, isServerReachable, offlineMode)
+        if(serverIrId && isServerReachable && !offlineMode){
             try{
+                data.respondent_id = respondent?.id;
                 setLoading(true);
-                if(data.numeric_component == '') data.numeric_component = null;
-                data.subcategories_data = existing?.task?.indicator?.require_numeric ? data.subcategory_data : data.subcategory_data?.map(cat => ({id:null, subcategory:{id: cat}, numeric_component: null}));
                 console.log('uploading interaction', data);
-                const response = await fetchWithAuth(`/api/record/interactions/${serverId}/`, {
+                const response = await fetchWithAuth(`/api/record/interactions/${serverIrId}/`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data),
                 });
                 const returnData = await response.json();
-                if(!response.ok){
+                if(response.ok){
+                    router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
+                }
+                else{
                     console.error(returnData);
                 }
             }
@@ -141,7 +181,7 @@ export default function EditInteraction(){
             }
         }
         //if connection was lost while editing, throw an error to alert the user
-        else if(serverId && !isServerReachable){
+        else if(serverIrId && !isServerReachable){
             alert('Please reconnect to edit this interaction.');
             return;
         }
@@ -149,13 +189,6 @@ export default function EditInteraction(){
         else{
             try{
                 setLoading(true);
-                //if subcategories and no numeric, convert the list of ids returned by checkbox to objects the DB expects
-                if(!existing?.task?.indicator?.require_numeric && existing?.task?.indicator?.subcategories?.length > 0){
-                    data.subcategory_data = data.subcategory_data.map(c => {
-                        const name = existing.task.indicator.subcategories.find(o => o.id == c)?.name
-                        return {id: null, subcategory: {id: c, name: name}, numeric_component: null};
-                    })
-                }
                 console.log('submitting data...', data);
                 //save the interaction locally in case of connection interrupt
                 result = await Interaction.save(data, existing?.id); //save locally first
@@ -174,100 +207,72 @@ export default function EditInteraction(){
                     }
                 }
                 else{
-                    alert('Interaction saved. Will sync next time connection is found.')
+                    alert('Interaction saved. Will sync next time connection is found.');
+                    router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
                 }
             }
             catch(err){
                 console.error(err);
             }   
             finally{
-                setLoading(true);
+                setLoading(false);
             }
         }
-        //if not connected/uploaded, redirect using the local id
-        router.push({ pathname: `/authorized/(tabs)/respondents/${redirectId}` });
         return result
     };
-
-    //prepare existing subcategory data based on whether a number is required
-    const subcatData = useMemo(() => {
-        if(!existing || !existing?.subcategories || existing?.subcategories?.length === 0) return [];// return empty array if not data
-        //map with numbers if requires numeric
-        if(existing?.task?.indicator?.require_numeric){
-            return existing?.subcategories?.map(cat => (
-                {
-                    id: cat?.id, 
-                    subcategory:{'id': cat?.subcategory?.id}, 
-                    numeric_component: cat?.numeric_component
-                }
-            )) ?? []
-        }
-        //if no subcats, convert to array of ints for checkbox component
-        else{
-            return existing?.subcategories?.map(cat => cat?.subcategory?.id) ?? [];
+    
+    const defaultValues = useMemo(() => {
+        return {
+            interaction_date: existing?.interaction_date ?? '',
+            interaction_location: existing?.interaction_location ?? '',
+            response_data: (serverIrId || respondentId) ? calcDefaultServer(task?.assessment, existing) : calcDefaultLocal(task?.assessment, existing),
         }
     }, [existing]);
 
-    //set default values
-    const defaultValues = useMemo(() => {
-        return {
-            interaction_date: existing?.interaction_date ?? null,
-            interaction_location: existing?.interaction_location ?? '',
-            numeric_component: existing?.numeric_component?.toString() ?? '',
-            subcategory_data: subcatData, //interaction ORM will expect this as subcategory data
-            comments: existing?.comments ?? '',
-        }
-    }, [existing]); 
-
-    //construct RHF variables
-    const { control, handleSubmit, setValue, getValues, watch, reset, formState: { errors } } = useForm({ defaultValues });
-
-    //set default values to existing once loaded
+    const methods = useForm({ defaultValues });
+    const { register, control, handleSubmit, reset, watch, setFocus, formState: { errors } } = methods;
+    
+    //load existing values once existing loads, if provided
     useEffect(() => {
-        if (existing) {
-            reset(defaultValues);
+        if (task?.assessment) {
+            const defaults = {
+                interaction_date: existing?.interaction_date ?? '',
+                interaction_location: existing?.interaction_location ?? '',
+                response_data: (serverIrId || respondentId) ? calcDefaultServer(task?.assessment, existing) : calcDefaultLocal(task?.assessment, existing),
+            };
+            reset(defaults);
         }
-    }, [existing, reset, defaultValues]);
-    console.log(existing)
-    const info = [
-        {name: 'interaction_date', label: 'Date of Interaction', type: 'date', rules: {required: 'Required'}},
-        {name: 'interaction_location', label: 'Interaction Location', type: 'text', rules: {required: 'Required', maxLength: { value: 255, message: 'Maximum length is 255 characters.'}}},
-    ]
-    //only show if require_numeric is true and there are no subcategories
-    const numeric = [
-        {name: 'numeric_component', label: 'Number Distributed', type: 'numeric', rules: {required: 'Required'}},
-    ]
-    //show if subcategories
-    const subcats = [
-        {name: 'subcategory_data', label: 'Subcategories',  type: `${existing?.task?.indicator?.require_numeric ? 'multinumber' : 'multiselect'}`,
-            options: existing?.task?.indicator?.subcategories, valueField: 'id', labelField: 'name', rules: {required: 'Required'}
-        }
-    ]
-    //optional comments
-    const comments = [
-        {name: 'comments', label: 'Comments', type: 'textarea'}
+    }, [task, existing, reset]);
+
+    const responseInfo = watch("response_data");
+
+    const basics = [
+        { name: 'interaction_date', label: 'Date of Interaction', type: "date", rules: { required: "Required", },
+            tooltip: 'Give it a memorable name.',
+        },
+        { name: 'interaction_location', label: "Location of Interaction", type: "text", rules: { required: "Required", maxLength: { value: 255, message: 'Maximum length is 255 characters.'} },
+                placeholder: 'A brief overview, the purpose, objectives, anything...'
+        },
     ]
 
-    if(loading) return <LoadingScreen />
-    return (
+    if(loading || !respondent || !task?.assessment) return <LoadingScreen />
+    return(
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <StyledScroll>
-                <View style={{ marginTop: 20 }}>
-                    <FormSection fields={info} control={control} header={'Editing Interaction'} />
-                    {existing?.task?.indicator?.require_numeric && existing?.task?.indicator?.subcategories?.length == 0 &&
-                        <FormSection fields={numeric} control={control} />}
-                    {existing?.task?.indicator?.subcategories?.length > 0 && 
-                        <FormSection fields={subcats} control={control} />}
-                    <FormSection fields={comments} control={control} />
+                <FormProvider {...methods} >
+                    <FormSection control={control} fields={basics} header={'Date & Location'} />
+
+                    {task.assessment.indicators.sort((a, b) => a.indicator_order-b.indicator_order).map((ind) => (
+                        <ResponseField indicator={ind} assessment={task.assessment} respondent={respondent} responseInfo={responseInfo} />
+                    ))}
+
                     < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
                             console.log("Validation errors:", formErrors);
                         })} label={'Submit'} 
                     />
                     <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/${redirectId}`)} label={'Cancel'}/>
-                    {existing && !serverId && <StyledButton onPress={handleDelete} label={'Delete'}/>}
-                </View>
-                <View style={{ padding: 30 }}></View>
+                </FormProvider>
             </StyledScroll>
         </KeyboardAvoidingView>
-    );
+    )
 }

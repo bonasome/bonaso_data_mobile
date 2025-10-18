@@ -1,6 +1,5 @@
 import IconInteract from "@/components/inputs/IconInteract";
 import LoadingScreen from "@/components/Loading";
-import AddInteraction from "@/components/respondents/addInteraction";
 import Interactions from "@/components/respondents/interactions";
 import PregnancyModal from "@/components/respondents/pregnancyModal";
 import StyledScroll from "@/components/styledScroll";
@@ -20,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import countries from "world-countries";
+import Tasks from "../tasks";
 
 
 export default function RespondentDetail(){
@@ -260,12 +260,13 @@ export default function RespondentDetail(){
                     </View>}
                 </View>
             </View>
-            {/* Allow user to create, view, and edit interactions related to this respondent */}
-            <AddInteraction localId={localId} serverId={serverId} onSubmit={() => setRefreshKey(new Date())} />
             <View>
-                <Interactions localId={localId} serverId={serverId} updateTrigger={refreshKey} />
-                <View style={{ padding: 30 }}></View>
+                <Tasks serverRespondent={serverId} localRespondent={localId} />
             </View>
+            <View>
+                <Interactions localId={localId} serverId={serverId} />
+            </View>
+            {/* Allow user to create, view, and edit interactions related to this respondent */}
         </StyledScroll>
         </KeyboardAvoidingView>
     )

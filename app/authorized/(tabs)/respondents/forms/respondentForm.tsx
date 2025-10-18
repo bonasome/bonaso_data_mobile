@@ -171,7 +171,7 @@ export default function CreateRespondent() {
             //if not anon, validate DOB
             data.dob = checkDate(data.dob); //will return ISO string if default is ISO string or if date value is passed
             if(!data.dob){
-                 alert('Date of Birth is Required.');
+                alert('Date of Birth is Required.');
                 return
             }
             const { success, message } = dateValidation(data.dob, 'Date of Birth');

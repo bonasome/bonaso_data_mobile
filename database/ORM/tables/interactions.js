@@ -1,23 +1,25 @@
 import fetchWithAuth from '@/services/fetchWithAuth';
 import BaseModel from '../base';
-import { IndicatorSubcategory } from './indicators';
+import { Indicator } from './indicators';
 import { RespondentLink } from './respondents';
 import { Task } from './tasks';
 
 
-export class InteractionSubcategory extends BaseModel {
+export class Response extends BaseModel {
     /*
     Stores data about subcategories related to an indicator (m2o through)
     */
-    static table = 'interaction_subcategories';
+    static table = 'responses';
 
     static fields = {
         interaction: {type: 'integer', relationship: {table: 'interactions', column: 'id'}},
-        numeric_component: {type: 'integer', allow_null: true},
-        subcategory: {type: 'integer', relationship: {table: 'indicator_subcategories', column: 'server_id'}},
+        indicator: {type: 'integer'},
+        response_date: {type: 'text', allow_null: true},
+        response_location: {type: 'text', allow_null: true},
+        value: {type: 'text', allow_null: true}
     }
     static relationships = [
-        {model: IndicatorSubcategory, field: 'subcategory', name: 'indicator_subcategories', relCol: 'id', thisCol: 'subcategory', onDelete: 'nothing', fetch: true, many: false}, 
+        {model: Indicator, field: 'indicator', name: 'indicators', relCol: 'id', thisCol: 'indicator', onDelete: 'cascade', fetch: true, many: false},
     ]
 }
 
@@ -31,34 +33,42 @@ export class Interaction extends BaseModel {
     static fields = {
         interaction_date: {type: 'text'},
         interaction_location: { type: 'text'},
-        numeric_component: {type: 'integer', allow_null: true},
         task: {type: 'integer', relationship: {table: 'task', column: 'id'}},
         respondent_uuid: {type: 'text'},
         comments: {type: 'text', allow_null: true},
         synced: {type: 'boolean', default: 0}
     }
     static relationships = [
-        {model: InteractionSubcategory, field: 'subcategories', name: 'interaction_subcategories', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
+        {model: Response, field: 'responses', name: 'responses', relCol: 'interaction', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
         {model: Task, field: 'task', name: 'tasks', relCol: 'id', thisCol: 'task', onDelete: 'nothing', fetch: true, many: false}
     ]
 
-    //custom save method that will wipe and reset subcategories on save
     static async save(data, id, col = 'id') {
-        const { subcategory_data = [],  ...mainData } = data;
+        const { response_data, respondent_id, task_id, ...mainData } = data;
         // Save main record first
+        mainData.task = task_id;
+        console.log(mainData)
         const savedId = await super.save(mainData, id, col);
-        
-        //to avoid wierd duplictes, play it safe and delete any exisitng subcategory data
-        if(subcategory_data.length > 0){
-            await InteractionSubcategory.delete(savedId, 'interaction');
-            // Save related subcategories
-            for (const subcat of subcategory_data) {
-                await InteractionSubcategory.save({ subcategory: subcat.subcategory.id, numeric_component: subcat.numeric_component, interaction: savedId });
+        // Save related responses
+        await Response.delete(savedId, 'interaction')
+        for(const key in response_data){
+            const response = response_data[key];
+            const ind = await Indicator.find(key);
+            const indicator = await ind.serialize();
+            if(indicator.type == 'multi') {
+                for(const o in response.value){
+                    const val = response.value[o]                    
+                    await Response.save({ interaction: savedId, value: val.toString(), response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                }
             }
+            else{
+                await Response.save({ interaction: savedId, value: response.value.toString(), response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+            }
+            
         }
-        
         return savedId; // Return id so caller can fetch full object if needed
     }
+    
 
     //use to sync interactions with a respondent server ID, otherwise call sync for respondent, which I haven't written yet
     static async upload() {
@@ -70,31 +80,48 @@ export class Interaction extends BaseModel {
         let toSync = []; //array of data to upload
         for(const item of unsynced){
             let ir = await item.serialize()
-            const subcategory_data = Array.isArray(ir.subcategories)
-            ? ir.subcategories.map(cat => ({
-                id: null,
-                subcategory: { id: cat.subcategory.id, name: cat.subcategory.name },
-                numeric_component: (cat.numeric_component == '' ? null : cat.numeric_component),
-            }))
-            : [];
             //find related respondent, even if this was created offline, respondents are uploaded first so they should have a server ID by now 
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
-            const server_id = respondent_link?.server_id;
+            console.log(ir.respondent_uuid);
+            let server_id = respondent_link?.server_id;
+            if(ir.respondent_uuid == '7247baa0-6b8d-49df-8f89-6f00e564f40d') server_id = 4
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
             }
             if(ir.numeric_component == '') ir.numeric_component = null;
             //interaction object as backend expects it
+            ir.interaction_date = ir.interaction_date.includes('T') ? ir.interaction_date.toString().split('T')[0] : ir.interaction_date
+            let responseData = {};
+            let seen = [];
+
+            ir.responses.forEach((r) => {
+                const id = r.indicator.id;
+
+                if (r.indicator.type === 'multi') {
+                    if (seen.includes(id)) {
+                        responseData[id].value.push(r.value);
+                    } else {
+                        responseData[id] = { value: [r.value] }; // initialize object
+                    }
+                } 
+                else {
+                    if (seen.includes(id)) {
+                        console.error('Duplicate responses recorded');
+                        return;
+                    }
+                    responseData[id] = r; // store the whole response
+                }
+                seen.push(id);
+            });
+            console.log(responseData)
             toSync.push({
                 local_id: ir.id,
-                respondent: server_id,
+                respondent_id: server_id,
                 interaction_date: ir.interaction_date,
                 interaction_location: ir.interaction_location,
                 task_id: ir.task.id,
-                numeric_component: ir.numeric_component,
-                subcategories_data: subcategory_data,
-                comments: ir.comments
+                response_data: responseData,
             })
         }
         try {

@@ -21,7 +21,7 @@ export default function Header() {
     
     //get necesary contexts
     const { signOut, offlineMode } = useAuth();
-    const { isServerReachable, setIsServerReachable } = useConnection();
+    const { isServerReachable } = useConnection();
 
     //custom action to focibly sync the app (upload unsynced data and get latest info from the server)
     //available when user is connected and not in offline mode 
@@ -39,7 +39,6 @@ export default function Header() {
                 console.error('Upload failed during sync:', err);
             }
         }
-        setIsServerReachable(connected);
     };
 
     return(

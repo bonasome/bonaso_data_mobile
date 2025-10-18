@@ -7,9 +7,9 @@ export class LogicCondition extends BaseModel {
     static table = 'logic_conditions';
 
     static fields = {
-        group: { type: 'integer', relationship: { table: 'logic_groups', column: 'id' }},
+        logic_group: { type: 'integer'},
         source_type: {type: 'text'},
-        source_indicator: {type: 'integer', allow_null: true, relationship: {table: 'indicators', column: 'id'}},
+        source_indicator: {type: 'integer', allow_null: true },
         value_option: { type: 'integer', allow_null: true},
         value_text: { type: 'text', allow_null: true},
         value_boolean: { type: 'integer', allow_null: true },
@@ -20,10 +20,7 @@ export class LogicCondition extends BaseModel {
     }
     static get relationships() {
         const { Indicator, Option } = require('./indicators'); // or dynamic import
-        return [ 
-            { model: Indicator, field: 'source_indicator', name: 'indicators', relCol: 'id', thisCol: 'source_indicator', onDelete: 'cascade', fetch: true, many: false }, 
-            { model: Option, field: 'value_option', name: 'options', relCol: 'id', thisCol: 'value_option', onDelete: 'cascade', fetch: true, many: false },
-        ];
+        return [];
     }
 }
 
@@ -39,7 +36,7 @@ export class LogicGroup extends BaseModel {
         group_operator: {type: 'text'},
     }
     static relationships = [
-        {model: LogicCondition, field: 'conditions', name: 'logic_conditions', relCol: 'group', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+        {model: LogicCondition, field: 'conditions', name: 'logic_conditions', relCol: 'logic_group', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
     ]
 }
 
@@ -50,7 +47,7 @@ export class Option extends BaseModel {
     static table = 'options';
 
     static fields = {
-        id: { type: 'integer' },
+        id: { type: 'integer', primary: true },
         indicator: { type: 'integer', relationship: {table: 'indicators', column: 'id'} },
         name: { type: 'text' },
     }
@@ -68,27 +65,27 @@ export class Indicator extends BaseModel {
     static fields = {
         id: {type: 'integer', primary: true},
         assessment: { type: 'integer', relationship: {table: 'assessments', column: 'id'}},
-        code: {type: 'text'},
         name: {type: 'text'},
-        description: {type: 'text'},
-        require_numeric: {type: 'boolean'},
-        match_subcategories_to: {type: 'integer', allow_null: true},
-        allow_repeat: {type: 'integer', default: 0, allow_null: true}
+        description: {type: 'text', allow_null: true},
+        match_options: {type: 'integer', allow_null: true},
+        allow_none: {type: 'integer', allow_null: true},
+        required: {type: 'integer', default: 0, allow_null: true},
+        type: {type: 'text'},
+        indicator_order: { type: 'integer'},
     }
 
     static relationships = [
         {model: Option, field: 'options', name: 'options', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', onDelete: 'cascade', fetch: true, many: true}, 
-        {model: IndicatorSubcategory, field: 'subcategories', name: 'indicator_subcategories', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true},
-        {model: RequiredAttribute, field: 'required_attributes', name: 'required_attributes', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', fetch: true, many: true}, 
+        {model: LogicGroup, field: 'logic', name: 'logic_groups', relCol: 'indicator', thisCol: 'id', onDelete: 'cascade', onDelete: 'cascade', fetch: true, many: false}, 
     ]
 
     //extends base serializer, since some indicators may share subcategories if matched, fetch them
     async serialize() {
         let baseSerialized = await super.serialize();
-        if(this.match_subcategories_to){
-            const subcats = await IndicatorSubcategory.filter({indicator: this.match_subcategories_to});
-            const subcatsArray = subcats.map(cat => ({id: cat.id, name: cat.name}));
-            baseSerialized.subcategories = subcatsArray;
+        if(this.match_options){
+            const opts = await Option.filter({indicator: this.match_options});
+            const optionsArray = opts.map(o => ({id: o.id, name: o.name}));
+            baseSerialized.options = optionsArray;
         }
         return baseSerialized;
     }

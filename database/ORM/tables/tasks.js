@@ -1,5 +1,5 @@
 import BaseModel from "../base";
-import { Indicator } from "./indicators";
+import { Assessment } from "./indicators";
 
 export class Project extends BaseModel {
     /*
@@ -40,11 +40,11 @@ export class Task extends BaseModel {
         display_name: {type: 'text'},
         project: {type: 'integer', relationship: {table: 'projects', onCol: 'id'}},
         organization: {type: 'integer', relationship: {table: 'organizations', onCol: 'id'}},
-        indicator: {type: 'integer', relationship: {table: 'indicators', onCol: 'id'}}
+        assessment: {type: 'integer', relationship: {table: 'assessments', onCol: 'id'}}
     }
     static relationships = [
         {model: Organization, field: 'organization', name: 'organizations', thisCol: 'organization', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
         {model: Project, field: 'project', name: 'projects', thisCol: 'project', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
-        {model: Indicator, field: 'indicator', name: 'indicators', thisCol: 'indicator', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
+        {model: Assessment, field: 'assessment', name: 'assessments', thisCol: 'assessment', relCol: 'id', onDelete: 'cascade', fetch: true, many: false}, 
     ]
 }

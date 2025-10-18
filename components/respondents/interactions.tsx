@@ -29,10 +29,10 @@ function InteractionCard({ ir, fromServer=false }){
     function goToEditIr(id){
         router.push(fromServer ? { 
             pathname: '/authorized/(tabs)/respondents/forms/interactionForm', 
-            params: { serverId: id } 
+            params: { serverIrId: id, taskId: ir.task.id } 
         } : { 
             pathname: '/authorized/(tabs)/respondents/forms/interactionForm', 
-            params: { localId: id } 
+            params: { localIrId: id, localRespondentId: ir.respondent_uuid, taskId: ir.task.id } 
         } );
     }
 
@@ -41,23 +41,6 @@ function InteractionCard({ ir, fromServer=false }){
             {/* Alter style if the interaction is not uploaded so the user knows */}
             <StyledText style={{ marginBottom: 10 }} type="defaultSemiBold">{ir.task?.display_name}</StyledText>
             <StyledText style={{ marginBottom: 10 }}>{prettyDates(ir.interaction_date)} at {ir.interaction_location}</StyledText>
-            
-            {ir?.subcategories?.length > 0 && <View style={{ marginBottom: 10 }}> 
-                <StyledText type="defaultSemiBold">Subcategories</StyledText>
-                {ir.subcategories.map((cat) => (
-                    <View key={cat.id ?? cat.subcategory} style={styles.li}>
-                        <StyledText style={styles.bullet}>{'\u2022'}</StyledText>
-                        <StyledText>{cat?.subcategory?.name} {cat?.numeric_component && `(${cat.numeric_component})`}</StyledText>
-                    </View>
-                ))}
-            </View>}
-            {ir?.numeric_component && <View style={{ marginBottom: 10 }}>
-                <StyledText type="defaultSemiBold">Amount: {ir.numeric_component}</StyledText>
-            </View>}
-            {ir?.comments && ir?.comments != '' && <View>
-                <StyledText type="defaultSemiBold">Comments:</StyledText>
-                <StyledText>{ir.comments}</StyledText>
-            </View>}
             <IconInteract onPress={() => goToEditIr(ir.id)} icon={<MaterialIcons name="edit" size={24} color="white" />} style={{marginStart: 'auto'}}/>
         </View>
     )

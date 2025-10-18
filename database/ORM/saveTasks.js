@@ -1,5 +1,5 @@
 import openDB from '@/database/dbManager';
-import { Indicator, Assessment, Option, LogicCondition, LogicGroup } from './tables/indicators';
+import { Assessment, Indicator, LogicCondition, LogicGroup, Option } from './tables/indicators';
 import { Organization, Project, Task } from './tables/tasks';
 
 async function clearTables(){
@@ -57,7 +57,7 @@ export default async function saveTasks(data){
             id: ass.id,
             name: ass.name,
         }
-        await Assesment.save(assessment);
+        await Assessment.save(assessment);
         
         for(const ind of ass.indicators){
             const indicator = {
@@ -67,7 +67,8 @@ export default async function saveTasks(data){
                 type: ind.type,
                 match_options: ind.match_options,
                 allow_none: ind.allow_none,
-                order: ind.order,
+                indicator_order: ind.order,
+                assessment: ass.id,
             }
             Indicator.save(indicator)
             if(['multi', 'single'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
@@ -80,22 +81,23 @@ export default async function saveTasks(data){
                     Option.save(option)
                 }
             }
-            if(ind.logic.group_operator && ind.logic.conditions.length > 0){
-                const  group = {
+
+            if(ind?.logic?.group_operator && ind?.logic?.conditions?.length > 0){
+                const  logic_group = {
                     id: ind.logic.id,
                     indicator: ind.id,
-                    group_operator: logic.group_operator
+                    group_operator: ind.logic.group_operator
                 }
-                LogicGroup.save(group);
+                LogicGroup.save(logic_group);
                 for(const c of ind.logic.conditions){
-                    condition = {
-                        group: ind.logic.id,
+                    const condition = {
+                        logic_group: ind.logic.id,
                         source_type: c.source_type,
                         source_indicator: c.source_indicator,
                         respondent_field: c.respondent_field,
                         operator: c.operator,
                         value_text: c.value_text,
-                        value_option: c.value_option.id,
+                        value_option: c.value_option,
                         value_boolean: c.value_boolean ? 1 : 0,
                         condition_type: c.condition_type,
                     }
