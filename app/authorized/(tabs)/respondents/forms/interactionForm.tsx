@@ -2,6 +2,7 @@ import LoadingScreen from "@/components/Loading";
 import FormSection from "@/components/forms/FormSection";
 import StyledButton from "@/components/inputs/StyledButton";
 import StyledScroll from "@/components/styledScroll";
+import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
 import { Interaction } from "@/database/ORM/tables/interactions";
@@ -9,14 +10,15 @@ import { Respondent } from "@/database/ORM/tables/respondents";
 import { Task } from "@/database/ORM/tables/tasks";
 import checkDate from "@/services/checkDate";
 import fetchWithAuth from "@/services/fetchWithAuth";
-import { calcDefaultLocal, calcDefaultServer } from '@/services/interactions/calcDefault';
+import { calcDefault } from '@/services/interactions/calcDefault';
+import { checkLogic } from '@/services/interactions/checkLogic';
 import prettyDates from "@/services/prettyDates";
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { FormProvider, useForm } from "react-hook-form";
-import { KeyboardAvoidingView, Platform } from "react-native";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import ResponseField from '../../../../../components/respondents/responseField';
 
 export default function AssessmentForm(){
@@ -53,6 +55,7 @@ export default function AssessmentForm(){
 
     useEffect(() => {
         const getInteraction = async () => {
+            setLoading(true)
             if(serverIrId){
                 try {
                     console.log('fetching indicator details...');
@@ -77,7 +80,7 @@ export default function AssessmentForm(){
                     setLoading(true);
                     const found = await Interaction.find(localIrId);
                     const serialized = await found?.serialize();
-                    setExisting(serialized);
+                    setExisting(serialized)
                     setRedirectId(`-${serialized.respondent_uuid}`); //set redirect Id to the interaction's respondent
                 }
                 catch(err){
@@ -111,7 +114,7 @@ export default function AssessmentForm(){
             }
             else if(localRespondentId){
                 try{
-                    setLoading(true);
+                    setLoading(true); 
                     const found = await Respondent.find(localRespondentId, 'local_id');
                     const serialized = await found?.serialize();
                     setRespondent(serialized);
@@ -154,7 +157,7 @@ export default function AssessmentForm(){
         data.interaction_date = checkDate(data.interaction_date)
         let result = null; //placeholder to track saved Id
         //if online, try to upload changes directly
-        console.log(serverIrId, isServerReachable, offlineMode)
+
         if(serverIrId && isServerReachable && !offlineMode){
             try{
                 data.respondent_id = respondent?.id;
@@ -220,54 +223,67 @@ export default function AssessmentForm(){
         }
         return result
     };
-    
     const defaultValues = useMemo(() => {
         return {
             interaction_date: existing?.interaction_date ?? '',
             interaction_location: existing?.interaction_location ?? '',
-            response_data: (serverIrId || respondentId) ? calcDefaultServer(task?.assessment, existing) : calcDefaultLocal(task?.assessment, existing),
+            response_data: calcDefault(task?.assessment, existing),
+            comments: existing?.comments ?? '',
         }
     }, [existing]);
 
     const methods = useForm({ defaultValues });
-    const { register, control, handleSubmit, reset, watch, setFocus, formState: { errors } } = methods;
+    const { register, unregister, control, handleSubmit, reset, watch, setFocus, getValues, setValue, formState: { errors } } = methods;
     
+    //scroll to errors
+    const onError = (errors) => {
+        const firstError = Object.keys(errors)[0];
+        if (firstError) {
+            setFocus(firstError); // sets cursor into the field
+            // scroll the element into view smoothly
+            const field = document.querySelector(`[name="${firstError}"]`);
+            if (field && field.scrollIntoView) {
+            field.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }
+    };
+
     //load existing values once existing loads, if provided
     useEffect(() => {
         if (task?.assessment) {
             const defaults = {
                 interaction_date: existing?.interaction_date ?? '',
                 interaction_location: existing?.interaction_location ?? '',
-                response_data: (serverIrId || respondentId) ? calcDefaultServer(task?.assessment, existing) : calcDefaultLocal(task?.assessment, existing),
+                response_data: calcDefault(task?.assessment, existing),
+                comments: existing?.comments ?? '',
             };
             reset(defaults);
         }
-    }, [task, existing, reset]);
+    }, [task?.assessment, existing, reset]);
 
-    const responseInfo = watch("response_data");
-
-
+    const responseInfo = useWatch({ control, name: "response_data" });
+    
     const visibilityMap = useMemo(() => {
-        if(!assessment || !respondent) return {};
+        if(!task?.assessment || !respondent) return {};
         const map = {}
-        assessment.indicators.forEach((ind) => {
+        task?.assessment.indicators.forEach((ind) => {
              const logic = ind.logic;
             //no logic, always return true
             if(!logic?.conditions || logic?.conditions?.length == 0) map[ind.id] = true;
             else if(ind.logic.group_operator == 'AND'){
-                map[ind.id] = logic.conditions.every(c => (checkLogic(c, responseInfo, assessment, respondent)))
+                map[ind.id] = logic.conditions.every(c => (checkLogic(c, responseInfo, task?.assessment, respondent)))
             }
             //must be an OR
             else{
-                map[ind.id] =  logic.conditions.some(c => (checkLogic(c, responseInfo, assessment, respondent)))
+                map[ind.id] =  logic.conditions.some(c => (checkLogic(c, responseInfo, task?.assessment, respondent)))
             }
         });
         return map;
     }, [responseInfo]);
 
     useEffect(() => {
-        if (!assessment || !respondent) return;
-        assessment.indicators.forEach(ind => {
+        if (!task?.assessment || !respondent) return;
+        task?.assessment.indicators.forEach(ind => {
             if (!visibilityMap[ind.id]) {
                 const currentValue = responseInfo?.[ind.id]?.value;
                 // ✅ Only unregister/reset if there’s actually data
@@ -277,12 +293,12 @@ export default function AssessmentForm(){
                 }
             }
         });
-    }, [visibilityMap, unregister, assessment, respondent]);
+    }, [visibilityMap, unregister, task?.assessment, respondent]);
 
      const optionsMap = useMemo(() => {
-        if(!assessment) return {};
+        if(!task?.assessment) return {};
         const map = {}
-        assessment.indicators.forEach((ind) => {
+        task?.assessment.indicators.forEach((ind) => {
             if(['boolean'].includes(ind.type)){
                 map[ind.id] = [{value: true, label: 'Yes'}, {value: false, label: 'No'}];
                 return;
@@ -300,11 +316,11 @@ export default function AssessmentForm(){
             map[ind.id] = opts
         })
         return map
-    }, [assessment, responseInfo]);
+    }, [task?.assessment, responseInfo]);
 
     useEffect(() => {
-        if(!assessment || !optionsMap) return;
-        assessment.indicators.forEach((ind) => {
+        if(!task?.assessment || !optionsMap) return;
+        task?.assessment.indicators.forEach((ind) => {
             const options = optionsMap[ind.id]
             if (!['single', 'multi'].includes(ind.type)) return;
             if (!options || options.length === 0) return;
@@ -337,7 +353,7 @@ export default function AssessmentForm(){
         },
     ]
 
-    const visibleInds = (assessment && respondent && visibilityMap) ? assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
+    const visibleInds = (task?.assessment && respondent && visibilityMap) ? task?.assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
     if(loading || !respondent || !task?.assessment) return <LoadingScreen />
     return(
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -345,16 +361,19 @@ export default function AssessmentForm(){
                 <FormProvider {...methods} >
                     <FormSection control={control} fields={basics} header={'Date & Location'} />
 
-                    {task.assessment.indicators.sort((a, b) => a.indicator_order-b.indicator_order).map((ind) => (
+                    {task?.assessment.indicators.sort((a, b) => a.indicator_order-b.indicator_order).map((ind) => (
                         <ResponseField indicator={ind} shouldShow={visibilityMap[ind.id]} options={optionsMap[ind.id]} />
                     ))}
-
-                    < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
+                    {visibleInds.length == 0 && <View>
+                        <StyledText>This respondent is not eligible for this assessment.</StyledText>
+                    </View>}
+                    {visibleInds.length > 0 && < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
                             console.log("Validation errors:", formErrors);
                         })} label={'Submit'} 
-                    />
+                    />}
                     <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/${redirectId}`)} label={'Cancel'}/>
                 </FormProvider>
+                <View style={{ padding: 40}}></View>
             </StyledScroll>
         </KeyboardAvoidingView>
     )

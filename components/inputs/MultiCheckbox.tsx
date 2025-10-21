@@ -18,9 +18,11 @@ export default function MultiCheckbox({ options, value, label, onChange, error, 
 
     //handle checking or unchecking a value by appending or filtering it from the value array
     const toggleValue = (val) => {
-        const updated = value?.includes(val)
-            ? value.filter(v => v !== val)
-            : [...value, val];
+        let useVals = value
+        if(!value || value == undefined) useVals = []
+        const updated = useVals?.includes(val)
+            ? useVals.filter(v => v !== val)
+            : [...useVals, val];
         onChange(updated);
     };
 

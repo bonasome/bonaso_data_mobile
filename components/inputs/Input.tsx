@@ -14,7 +14,7 @@ export default function Input({ value, onChange, label, error, placeholder='', k
     - keyboard (string, optional): enter to display specific keyboard (i.e., numeric, email, phone), entering textarea will show multiline input
     */
     return(
-        <View style={[styles.field, , style]}>
+        <View style={[styles.field, style]}>
             <StyledText type="defaultSemiBold">{label}</StyledText>
             <TextInput style={keyboard == 'textarea' ? styles.textarea : styles.input} value={value} onChangeText={(val) => onChange(val)} placeholder={placeholder} keyboardType={keyboard ? keyboard : 'default'} multiline={keyboard=='textarea'}/>
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}
@@ -25,15 +25,18 @@ export default function Input({ value, onChange, label, error, placeholder='', k
 const styles = StyleSheet.create({
     field: {
         marginBottom: 10,
+
     },
     input: {
         padding: 15,
+        minWidth: 100,
         backgroundColor: '#fff',
     },
     textarea: {
         padding: 15,
         backgroundColor: '#fff',
         height: 150,
+        width: 300,
         textAlignVertical: 'top',
     },
     errorText:{

@@ -71,7 +71,7 @@ export default async function saveTasks(data){
                 assessment: ass.id,
             }
             Indicator.save(indicator)
-            if(['multi', 'single'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
+            if(['multi', 'single', 'multint'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
                 for(const o of ind.options){
                     const option = {
                         id: o.id,

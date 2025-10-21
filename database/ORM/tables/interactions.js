@@ -22,7 +22,7 @@ export class Response extends BaseModel {
     }
     static relationships = [
         {model: Indicator, field: 'indicator', name: 'indicators', relCol: 'id', thisCol: 'indicator', onDelete: 'cascade', fetch: true, many: false},
-        { model: Option, field: 'response_option', name: 'options', relCol: 'id', thisCol: 'option', onDelete: 'cascade', fetch: true, many: false}
+        { model: Option, field: 'response_option', name: 'options', relCol: 'id', thisCol: 'response_option', onDelete: 'cascade', fetch: true, many: false}
     ]
 }
 
@@ -50,18 +50,27 @@ export class Interaction extends BaseModel {
         const { response_data, respondent_id, task_id, ...mainData } = data;
         // Save main record first
         mainData.task = task_id;
-        console.log(mainData)
+
         const savedId = await super.save(mainData, id, col);
         // Save related responses
-        await Response.delete(savedId, 'interaction')
+        await Response.delete(savedId, 'interaction');
+
         for(const key in response_data){
             const response = response_data[key];
             const ind = await Indicator.find(key);
             const indicator = await ind.serialize();
             if(indicator.type == 'multi') {
                 for(const o in response.value){
-                    const val = response.value[o]                    
-                    await Response.save({ interaction: savedId, response_option: val, response_boolean: null, response_value: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                    const val = response.value[o];                 
+                    await Response.save({ 
+                        interaction: savedId, 
+                        response_option: val, 
+                        response_boolean: null, 
+                        response_value: null, 
+                        response_date: mainData.interaction_date, 
+                        response_location: mainData.interaction_location, 
+                        indicator: key 
+                    })
                 }
             }
             else if(indicator.type == 'multint'){
@@ -75,7 +84,18 @@ export class Interaction extends BaseModel {
                 await Response.save({ interaction: savedId, response_value: null, response_option: response.value, response_boolean: null, response_value: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
             }
             else if(indicator.type == 'boolean'){
-                await Response.save({ interaction: savedId, response_value: null, response_boolean: response.value, response_option: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                console.log(response.value)
+                let val = null;
+                if(response.value == true) val = 1;
+                if(response.value == false) val = 0;
+                await Response.save({ 
+                    interaction: savedId, 
+                    response_value: null, 
+                    response_boolean: val, 
+                    response_option: null, 
+                    response_date: mainData.interaction_date, 
+                    response_location: mainData.interaction_location, 
+                    indicator: key })
             }
             else{
                 await Response.save({ interaction: savedId, response_value: response.value, response_boolean: null, response_option: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
@@ -95,30 +115,36 @@ export class Interaction extends BaseModel {
         }
         let toSync = []; //array of data to upload
         for(const item of unsynced){
-            let ir = await item.serialize()
+            let ir = await item.serialize();
+            
             //find related respondent, even if this was created offline, respondents are uploaded first so they should have a server ID by now 
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
-            console.log(ir.respondent_uuid);
             let server_id = respondent_link?.server_id;
             if(ir.respondent_uuid == '7247baa0-6b8d-49df-8f89-6f00e564f40d') server_id = 4
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
             }
-            if(ir.numeric_component == '') ir.numeric_component = null;
             //interaction object as backend expects it
             ir.interaction_date = ir.interaction_date.includes('T') ? ir.interaction_date.toString().split('T')[0] : ir.interaction_date
             let responseData = {};
             let seen = [];
 
             ir.responses.forEach((r) => {
+                console.log(r)
                 const id = r.indicator.id;
-
                 if (r.indicator.type === 'multi') {
                     if (seen.includes(id)) {
                         responseData[id].value.push(r.response_option.id);
-                    } else {
-                        responseData[id] = { value: [r.response_option.id] }; // initialize object
+                    } 
+                    else {
+                        if(r.indicator.allow_none && r.response_option == null){
+                            responseData[id] = { value: ['none'] }; 
+                        } 
+                        else{
+                            responseData[id] = { value: [r.response_option.id] }; // initialize object
+                        }
+                        
                     }
                 } 
                 else if(r.indicator.type == 'multint'){
@@ -135,7 +161,12 @@ export class Interaction extends BaseModel {
                         return;
                     }
                     if(r.indicator.type == 'single'){
-                        responseData[id] = { value: r.response_option}
+                        if(r.indicator.allow_none && r.response_option == null){
+                            responseData[id] = { value: 'none' }; 
+                        } 
+                        else{
+                            responseData[id] = { value: r.response_option}
+                        }
                     }
                     else  if(r.indicator.type == 'boolean'){
                         responseData[id] = { value: r.response_boolean}

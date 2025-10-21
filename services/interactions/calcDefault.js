@@ -1,6 +1,5 @@
 export const calcDefault = (assessment, existing = null) => {
     if (!assessment) return {};
-    console.log(existing)
     let map = {};
 
     assessment.indicators.forEach((ind) => {
@@ -15,7 +14,8 @@ export const calcDefault = (assessment, existing = null) => {
                       .filter(r => r.indicator.id == ind.id)
                       .map(r => r.response_option?.id)
                 : [];
-            if (ind.allow_none && firstMatch && (!val || val.length === 0)) {
+            if (ind.allow_none && firstMatch && (!val || val==undefined || val.includes(undefined) || val.length === 0)) {
+                console.log('here')
                 val = ['none'];
             }
             map[ind.id] = { value: val, date: rDate, location: rLocation };
@@ -45,7 +45,10 @@ export const calcDefault = (assessment, existing = null) => {
 
         // BOOLEAN
         else if (ind.type === 'boolean') {
-            const val = [true, false].includes(firstMatch?.response_boolean) ? firstMatch?.response_boolean : null;
+            console.log(firstMatch)
+            let val = null;
+            if([true, 1].includes(firstMatch?.response_boolean)) val = true;
+            if([false, 0].includes(firstMatch?.response_boolean)) val = false;
             map[ind.id] = { value: val, date: rDate, location: rLocation };
         }
 
@@ -55,6 +58,5 @@ export const calcDefault = (assessment, existing = null) => {
             map[ind.id] = { value: val, date: rDate, location: rLocation };
         }
     });
-
     return map;
 };

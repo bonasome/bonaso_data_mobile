@@ -86,7 +86,9 @@ export default function Respondents(){
         <StyledScroll>
             <IndexWrapper entries={entries} page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={(isServerReachable && !offlineMode)}>
                 <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} label={'Create New Respondent'}/>
-                {localRespondents.length == 0 && serverRespondents.length == 0 && <StyledText>No respondents found...</StyledText>}
+                {localRespondents.length == 0 && serverRespondents.length == 0 && <View style={{padding: 10}}>
+                    <StyledText type='defaultSemiBold'>No respondents found...</StyledText>
+                </View>}
                 {localRespondents.length > 0 && <View style={{ borderColor: theme.colors.warning, borderWidth: 2, backgroundColor: theme.colors.warningBg, padding: 10, marginTop: 10, marginBottom: 10 }}>
                     <StyledText type="subtitle" style={{ color: theme.colors.warningText}}>Not Uploaded!</StyledText>
                     {localRespondents.map(r => (<RespondentCard key={r.local_id} respondent={r} fromServer={false} />))}

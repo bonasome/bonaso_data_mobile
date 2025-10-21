@@ -96,7 +96,6 @@ export default function RespondentDetail(){
         else if (localId) {
             const found = await Respondent.find(localId, 'local_id');
             const serialized = await found?.serialize();
-            console.log(serialized)
             setRespondent(serialized);
         }
     }
@@ -118,13 +117,15 @@ export default function RespondentDetail(){
 
     //convert respondent DB values to readable labels based on the locally stored respondents meta
     useEffect(() => {
+        if (!respondent) return;
+        const attrs = respondent?.special_attribute?.filter(attr => (!['PLWHIV', 'KP', 'PWD'].includes(attr.name))) ?? [];
         const getLabels = async() => {
             const ar = await AgeRange.getLabel(respondent?.age_range);
             const sex = await Sex.getLabel(respondent?.sex);
             const district = await District.getLabel(respondent?.district);
             const kp_status = await Promise.all(respondent?.kp_status?.map(kp => KPType.getLabel(kp.name))) ?? [];
             const disability_status = await Promise.all(respondent?.disability_status?.map(d => DisabilityType.getLabel(d.name))) ?? [];
-            const special_attribute = await Promise.all(respondent?.special_attribute?.map(a => SpecialRespondentAttribute.getLabel(a.name))) ?? [];
+            const special_attribute = await Promise.all(attrs.map(a => SpecialRespondentAttribute.getLabel(a.name))) ?? [];
             setLabels({
                 age_range: ar,
                 sex: sex,
@@ -175,7 +176,6 @@ export default function RespondentDetail(){
             }
             //if respondent is not in server, create or update the local record
             else{
-                console.log(data);
                 //the server will treat a null term_began with an id as a delete
                 //so handle the same situation locally
                 if(!data.pregnancy_data[0]?.term_began){
@@ -233,7 +233,7 @@ export default function RespondentDetail(){
                         ))}
                     </View>}
 
-                    {respondent?.special_attribute?.length > 0 && <View style={{ marginTop: 5}}>
+                    {respondent?.special_attribute?.filter(attr => (!['PLWHIV', 'KP', 'PWD'].includes(attr.name)))?.length > 0 && <View style={{ marginTop: 5}}>
                         <StyledText type="defaultSemiBold">Special Attributes</StyledText>
                         {labels?.special_attribute?.map((a) => (
                             <View key={a} style={styles.li}>
@@ -261,12 +261,13 @@ export default function RespondentDetail(){
                 </View>
             </View>
             <View>
-                <Tasks serverRespondent={serverId} localRespondent={localId} />
+                <Tasks serverRespondent={serverId} localRespondent={localId} forAssessment={true}/>
             </View>
             <View>
                 <Interactions localId={localId} serverId={serverId} />
             </View>
-            {/* Allow user to create, view, and edit interactions related to this respondent */}
+
+            <View style={{ padding: 40}}></View>
         </StyledScroll>
         </KeyboardAvoidingView>
     )

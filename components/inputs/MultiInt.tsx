@@ -13,17 +13,17 @@ export default function MultiInt({ name, label, options, value, onChange, error,
         toUpdate.value = val;
         onChange([...left, toUpdate])
     }
-
+    console.log(options)
     if(!options || options.length ==0) return <View></View>
     return (
         <View>
             <View style={{ display: 'flex', flexDirection: 'row' }}>
-                <p>{label} (Enter a number for each category.)</p>
+                <StyledText>{label} (Enter a number for each category.)</StyledText>
             </View>
             {options.map((o) => {
-                return (<View style={{ display: 'flex', flexDirection: 'row' }}>
+                return (<View style={{ display: 'flex', flexDirection: 'column' }}>
                     <StyledText>{o.label}</StyledText>
-                    <Input name={o.label} onChange={(v) => setValue(v, o.value)} value={value?.find(v => v?.option == o?.value)?.value ?? ''} />
+                    <Input name={o.label} onChange={(v) => setValue(v, o.value)} value={value?.find(v => v?.option == o?.value)?.value ?? ''} keyboard={'numeric'} />
                 </View>)
             })}
             {error && <StyledText style={styles.errorText}>{error}</StyledText>}

@@ -2,13 +2,13 @@ export const checkLogic = (c, responseInfo, assessment, respondent) => {
     if(!c || !responseInfo ||!assessment ||!respondent) return false
     if(c.source_type == 'assessment'){
         const prereq = assessment.indicators.find(i => i.id == c.source_indicator);
-        if(!prereq) return false;
+        if(!prereq || prereq == '' || prereq=='undefined') return false;
         let reqVal = null
         if(['single', 'multi'].includes(prereq.type)) reqVal = c.condition_type ? c.condition_type : c.value_option;
         else if(['boolean'].includes(prereq.type)) reqVal = c.value_boolean;
         else reqVal = c.value_text;
         let prereqVal = responseInfo?.[c.source_indicator]?.value
-        if([null, ''].includes(prereqVal)) return false;
+        if([null, undefined, '', 'undefined'].includes(prereqVal)) return false;
         
         
        if ((prereq.type === 'multi') && ['any','none','all'].includes(c.condition_type)) {
@@ -44,7 +44,7 @@ export const checkLogic = (c, responseInfo, assessment, respondent) => {
         
         if(['>', '<'].includes(c.operator)){
             if(isNaN(prereqVal) || isNaN(reqVal)){
-                console.warn('Cannot compare a non-integer.');
+                console.warn('Cannot compare a non-integer.', prereqVal, reqVal);
                 return false
             }
             return c.operator == '>' ? parseFloat(prereqVal) > parseFloat(reqVal) : parseFloat(prereqVal) < parseFloat(reqVal)

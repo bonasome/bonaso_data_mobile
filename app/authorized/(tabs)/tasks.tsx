@@ -8,9 +8,12 @@ import { useConnection } from "@/context/ConnectionContext";
 import { Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+
+
 function TaskCard({ task, localRespondent=null, serverRespondent=null }) {
     /*
     Card that displays information about a task and its associated indicator. 
@@ -43,7 +46,7 @@ function TaskCard({ task, localRespondent=null, serverRespondent=null }) {
     )
 }
 
-export default function Tasks({ localRespondent=null, serverRespondent=null }) {
+export default function Tasks({ localRespondent=null, serverRespondent=null, forAssessment=false }) {
     /*
     Component that displays a list of tasks from the local database. 
     */
@@ -52,7 +55,7 @@ export default function Tasks({ localRespondent=null, serverRespondent=null }) {
 
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
-
+    const [expanded, setExpanded] = useState(true);
     const [tasks, setTasks] = useState([]); //tasks to display
 
     //fetch the tasks from the db
@@ -72,17 +75,24 @@ export default function Tasks({ localRespondent=null, serverRespondent=null }) {
     const tasksToMap = tasks.slice((page-1)*10, ((page-1)*10+10));
     return (
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <StyledScroll>
-            <StyledText type="title">Your Tasks</StyledText>
-            <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
-                <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
-                {tasksToMap.length > 0 && tasksToMap.map((t) => (
-                    <TaskCard key={t.id} task={t} localRespondent={localRespondent} serverRespondent={serverRespondent} />
-                ))}
-                {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
-            </IndexWrapper>
-            <View style={{ padding: 20}}></View>
+        <StyledScroll style={forAssessment ? { margin: 0, padding: 0} : {}}>
+            <View style={forAssessment ? {backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 20} : {}}>
+                {!forAssessment && <StyledText type="title">Your Tasks</StyledText>}
+                {forAssessment && <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ display: 'flex', flexDirection: 'row', marginBottom: 10 }}>
+                    <StyledText type="subtitle">Start Assessment</StyledText>
+                    {expanded ? <FontAwesome name="arrow-circle-o-up" size={24} color="white" style={{marginLeft: 'auto'}}/> : <FontAwesome name="arrow-circle-o-down" size={24} color="white" style={{marginLeft: 'auto'}}/>}
+                </TouchableOpacity>}
+                {expanded && <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
+                    <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
+                    {tasksToMap.length > 0 && tasksToMap.map((t) => (
+                        <TaskCard key={t.id} task={t} localRespondent={localRespondent} serverRespondent={serverRespondent} />
+                    ))}
+                    {tasks.length === 0 && <StyledText style={styles.card} type="defaultSemiBold">No tasks yet!</StyledText>}
+                </IndexWrapper>}
+                {!forAssessment && <View style={{ padding: 20}}></View>}
+            </View>
         </StyledScroll>
+        {forAssessment &&<View style={{ padding: 10}}></View> }
         </KeyboardAvoidingView>
     );
 }

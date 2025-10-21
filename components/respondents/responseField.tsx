@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useController, useFormContext } from "react-hook-form";
 
 
@@ -11,16 +11,6 @@ export default function ResponseField ({ indicator, shouldShow, options }){
     const { control, setValue, getValues } = useFormContext();
 
 
-    useEffect(() => {
-        if (!shouldShow) {
-            if (indicator.type == 'multi') setValue(`response_data.${indicator.id}.value`, []);
-            else if (indicator.type == 'single') setValue(`response_data.${indicator.id}.value`, null);
-            else if (indicator.type == 'boolean') setValue(`response_data.${indicator.id}.value`, null);
-            else setValue(`response_data.${indicator.id}.value`, '');
-        }
-    }, [shouldShow, setValue]);
-
-
     const convertType = (type) => {
         if(type=='boolean') return 'radio';
         else if(type=='single') return 'radio';
@@ -29,7 +19,6 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         else if(type=='integer') return 'numeric';
         else return type;
     }
-
 
     const handleMultiSelectChange = (selectedValues) => {
         const lastElement = selectedValues[selectedValues.length - 1];
@@ -51,7 +40,7 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         fieldConfig.rules = {
             validate: (value) => {
                 // Allow false, 0, empty array, but disallow null or undefined
-                if (value === null || value === undefined || value === '' || (Array.isArray(val) && val.length === 0)) {
+                if (value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
                     return 'Required';
                 }
                 return true;
@@ -59,7 +48,7 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         };
         fieldConfig.label = `${indicator.indicator_order + 1}. ${indicator.name}*`
     }
-    
+
     if(!shouldShow) return <></>
     return(
         <View>
