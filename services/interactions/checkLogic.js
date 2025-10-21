@@ -11,11 +11,11 @@ export const checkLogic = (c, responseInfo, assessment, respondent) => {
         if([null, ''].includes(prereqVal)) return false;
         
         
-        if ((prereq.type === 'multi') && ['any','none','all'].includes(c.condition_type)) {
+       if ((prereq.type === 'multi') && ['any','none','all'].includes(c.condition_type)) {
             prereqVal = prereqVal || [];
             switch(reqVal) {
                 case 'any':
-                    return prereqVal.length > 0;
+                    return prereqVal.length > 0 && !['none'].includes(prereqVal);
                 case 'none':
                     return prereqVal.includes('none');
                 case 'all':
@@ -25,10 +25,10 @@ export const checkLogic = (c, responseInfo, assessment, respondent) => {
         if ((prereq.type === 'single') && ['any','none','all'].includes(c.condition_type)) {
             prereqVal = prereqVal || null;
             switch(reqVal) {
-                case 'any':
-                    return prereqVal;
                 case 'none':
                     return prereqVal == 'none';
+                case 'any':
+                    return prereqVal && prereqVal != 'none';
                 case 'all':
                     return false; // impossible
             }
@@ -59,7 +59,8 @@ export const checkLogic = (c, responseInfo, assessment, respondent) => {
     }
     else if(c.source_type == 'respondent'){
         const reqVal = c.value_text;
-        const prereqVal = respondent?.[c.respondent_field];
+         const prereqVal = c.respondent_field == 'hiv_status' ? (respondent?.hiv_status?.hiv_positive ? "true" : 'false') : 
+            respondent?.[c.respondent_field];
         //these are all that's supported right now
         if(c.operator == '=') return prereqVal == reqVal;
         if(c.operator == '!=') return prereqVal != reqVal;

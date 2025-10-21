@@ -1,29 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useController, useFormContext } from "react-hook-form";
 
-import { checkLogic } from "@/services/interactions/checkLogic";
 
 import { View } from 'react-native';
 import Field from "../forms/Field";
 
-export default function ResponseField ({ indicator, assessment, respondent, responseInfo }){
+export default function ResponseField ({ indicator, shouldShow, options }){
     const [expanded, setExpanded] = useState(false);
     const { field } = useController({ name: `response_data.${indicator.id}.value` });
     const { control, setValue, getValues } = useFormContext();
-
-    const shouldShow = useMemo(() => {
-        if(!indicator || !assessment ||!respondent) return false;
-        const logic = indicator.logic;
-        //no logic, always return true
-        if(!logic?.conditions || logic?.conditions?.length == 0) return true;
-        if(indicator.logic.group_operator == 'AND'){
-            return logic.conditions.every(c => (checkLogic(c, responseInfo, assessment, respondent)))
-        }
-        //must be an OR
-        else{
-            return logic.conditions.some(c => (checkLogic(c, responseInfo, assessment, respondent)))
-        }
-    }, [JSON.stringify(responseInfo)]);
 
 
     useEffect(() => {
@@ -44,36 +29,6 @@ export default function ResponseField ({ indicator, assessment, respondent, resp
         else if(type=='integer') return 'numeric';
         else return type;
     }
-
-    const options = useMemo(() => {
-        let opts = indicator?.options?.map((o) => ({value: o.id, label: o.name})) ?? [];
-        if(indicator.type == 'boolean') return [{value: true, label: 'Yes'}, {value: false, label: 'No'}]
-        if(indicator.allow_none) opts.push({value: 'none', label: 'None of the above'})
-        if(!indicator.match_options) return opts;
-        else if(indicator.match_options){
-            const valid = responseInfo?.[indicator.match_options]?.value;
-            return opts.filter(o => (valid?.includes(o?.value) || o?.value == 'none'))
-        }
-    }, [JSON.stringify(responseInfo)])
-    
-    useEffect(() => {
-        if (!['single', 'multi'].includes(indicator.type)) return;
-        if (!options || options.length === 0) return;
-
-        const val = getValues(`response_data.${indicator.id}.value`);
-        const valid_ids = options.map(p => p.value);
-
-        if (indicator.type === 'multi') {
-            const valArray = Array.isArray(val) ? val : [];
-            const filtered = valArray.filter(v => valid_ids.includes(v));
-            setValue(`response_data.${indicator.id}.value`, filtered);
-        }
-
-        if (indicator.type === 'single') {
-            const useVal = valid_ids.includes(val) ? val : null;
-            setValue(`response_data.${indicator.id}.value`, useVal);
-        }
-    }, [options, indicator.id, setValue, getValues]);
 
 
     const handleMultiSelectChange = (selectedValues) => {
@@ -96,7 +51,7 @@ export default function ResponseField ({ indicator, assessment, respondent, resp
         fieldConfig.rules = {
             validate: (value) => {
                 // Allow false, 0, empty array, but disallow null or undefined
-                if (value === null || value === undefined || value === '') {
+                if (value === null || value === undefined || value === '' || (Array.isArray(val) && val.length === 0)) {
                     return 'Required';
                 }
                 return true;

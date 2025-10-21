@@ -1,58 +1,60 @@
-export const calcDefaultLocal = (assessment, existing=null) => {
-    if(!assessment) return {}
-    let map = {}
-    assessment.indicators.forEach((ind) => {
-        if(ind.type == 'multi'){
-            const val =  (existing && ind.allow_none) ? (existing?.responses?.filter(r => r.indicator.id == ind.id)?.map(r => (r.value == 'none')).length > 0 ? 
-                ['none'] : existing?.responses?.filter(r => r.indicator?.id == ind?.id)?.map(r => (parseInt(r.value)))) : 
-                existing?.responses?.filter(r => r.indicator?.id == ind?.id)?.map(r => (parseInt(r.value))) ?? [];
-            map[ind.id] = { value: val }
-        } 
-        else if(ind.type == 'single'){
-            const val = (ind.allow_none && existing) ? (existing?.responses?.find(r => r.indicator.id == ind.id)?.value ?? 'none'): 
-                parseInt(existing?.responses?.find(r => r.indicator?.id == ind?.id)?.value) ?? null;
-            map[ind.id] = { value: val }
-        }
-        else if(ind.type == 'boolean'){
-            let val = existing?.responses.find(r => r.indicator?.id == ind?.id)?.value ?? null;
-            if(['true', 1, '1'].includes(val)) val = true;
-            if(['false', 0, '0'].includes(val)) val = false;
-            map[ind.id] = { value: val }
-        }
-        else {
-            const val = existing?.responses?.find(r => r.indicator?.id == ind?.id)?.value ?? '';
-            map[ind.id] = { value: val }
-        }
-    });
-    console.log(map)
-    return map;
-}
+export const calcDefault = (assessment, existing = null) => {
+    if (!assessment) return {};
+    console.log(existing)
+    let map = {};
 
-export const calcDefaultServer = (assessment, existing=null) => {
-    if(!assessment) return {}
-    let map = {}
-    
     assessment.indicators.forEach((ind) => {
-        if(ind.type == 'multi'){
-            const val =  (existing && ind.allow_none) ? (existing?.responses?.filter(r => r.indicator.id == ind.id)?.map(r => (r.response_option.id)).length > 0 ? 
-                existing?.responses?.filter(r => r.indicator.id == ind.id)?.map(r => (r.response_option.id)) : ['none']) : 
-                existing?.responses?.filter(r => r.indicator.id == ind.id)?.map(r => (r.response_option.id)) ?? [];
-            map[ind.id] = { value: val }
-        } 
-        else if(ind.type == 'single'){
-            const val = (ind.allow_none && existing) ? (existing?.responses?.find(r => r.indicator.id == ind.id)?.response_option ?? 'none'): 
-                existing?.responses?.find(r => r.indicator.id == ind.id)?.response_option ?? null;
-            map[ind.id] = { value: val }
+        const firstMatch = existing?.responses?.find(r => r.indicator.id == ind.id) ?? null;
+        const rDate = firstMatch?.response_date ?? '';
+        const rLocation = firstMatch?.response_location ?? '';
+
+        // MULTI-SELECT
+        if (ind.type === 'multi') {
+            let val = existing
+                ? existing.responses
+                      .filter(r => r.indicator.id == ind.id)
+                      .map(r => r.response_option?.id)
+                : [];
+            if (ind.allow_none && firstMatch && (!val || val.length === 0)) {
+                val = ['none'];
+            }
+            map[ind.id] = { value: val, date: rDate, location: rLocation };
         }
-        else if(ind.type == 'boolean'){
-            const val = existing?.responses.find(r => r.indicator.id == ind.id)?.response_boolean ?? null;
-            map[ind.id] = { value: val }
+        else if(ind.type == 'multint'){
+            let val = ind.options.map(o => ({ 
+                option: o.id, 
+                value: existing?.responses?.find(r => (r?.indicator?.id == ind.id && r?.response_option?.id == o?.id))?.response_value ?? ''
+            }))
+            map[ind.id] = { value: val, date: rDate, location: rLocation };
         }
+        // SINGLE-SELECT
+        else if (ind.type === 'single') {
+            let val;
+            if (existing) {
+                if (ind.allow_none) {
+                    val = firstMatch ? firstMatch?.response_option?.id ?? 'none' : null;
+                } 
+                else {
+                    val = firstMatch?.response_option?.id ?? null;
+                }
+            } else {
+                val = null;
+            }
+            map[ind.id] = { value: val, date: rDate, location: rLocation };
+        }
+
+        // BOOLEAN
+        else if (ind.type === 'boolean') {
+            const val = [true, false].includes(firstMatch?.response_boolean) ? firstMatch?.response_boolean : null;
+            map[ind.id] = { value: val, date: rDate, location: rLocation };
+        }
+
+        // TEXT / NUMBER / OTHER
         else {
-            const val = existing?.responses?.find(r => r.indicator.id == ind.id)?.response_value ?? '';
-            map[ind.id] = { value: val }
+            const val = firstMatch?.response_value ?? '';
+            map[ind.id] = { value: val, date: rDate, location: rLocation };
         }
     });
-    console.log(map)
+
     return map;
-}
+};

@@ -3,11 +3,10 @@ import Checkbox from '../inputs/Checkbox';
 import DatePicker from '../inputs/DatePicker';
 import Input from '../inputs/Input';
 import MultiCheckbox from '../inputs/MultiCheckbox';
-import MultiCheckboxNum from '../inputs/MultiCheckboxNum';
+import MultiInt from '../inputs/MultiInt';
 import RadioButtons from '../inputs/RadioButtons';
 import SimplePicker from '../inputs/SimplePicker';
 import StyledText from '../styledText';
-
 
 export default function Field({ field, control }) {
     /*
@@ -66,8 +65,8 @@ export default function Field({ field, control }) {
                         return <Checkbox  {...commonProps} />;
                     case 'multiselect': //multiselect from checkbox
                         return <MultiCheckbox {...commonProps} options={options} valueField={valueField} labelField={labelField}/>
-                    case 'multinumber': //really only useful for interaction subcategories that reuqire a number
-                        return <MultiCheckboxNum {...commonProps} options={options} />
+                    case 'multint': //really only useful for interaction subcategories that reuqire a number
+                        return <MultiInt {...commonProps} options={options} valueField={valueField} labelField={labelField}/>
                         
                     default:
                         return <StyledText>Unsupported field type: {type}</StyledText>;

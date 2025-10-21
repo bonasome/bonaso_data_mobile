@@ -246,6 +246,88 @@ export default function AssessmentForm(){
 
     const responseInfo = watch("response_data");
 
+
+    const visibilityMap = useMemo(() => {
+        if(!assessment || !respondent) return {};
+        const map = {}
+        assessment.indicators.forEach((ind) => {
+             const logic = ind.logic;
+            //no logic, always return true
+            if(!logic?.conditions || logic?.conditions?.length == 0) map[ind.id] = true;
+            else if(ind.logic.group_operator == 'AND'){
+                map[ind.id] = logic.conditions.every(c => (checkLogic(c, responseInfo, assessment, respondent)))
+            }
+            //must be an OR
+            else{
+                map[ind.id] =  logic.conditions.some(c => (checkLogic(c, responseInfo, assessment, respondent)))
+            }
+        });
+        return map;
+    }, [responseInfo]);
+
+    useEffect(() => {
+        if (!assessment || !respondent) return;
+        assessment.indicators.forEach(ind => {
+            if (!visibilityMap[ind.id]) {
+                const currentValue = responseInfo?.[ind.id]?.value;
+                // ✅ Only unregister/reset if there’s actually data
+                if (currentValue !== undefined) {
+                    setValue(`response_data.${ind.id}`, {}, { shouldDirty: false });
+                    unregister(`response_data.${ind.id}.value`);
+                }
+            }
+        });
+    }, [visibilityMap, unregister, assessment, respondent]);
+
+     const optionsMap = useMemo(() => {
+        if(!assessment) return {};
+        const map = {}
+        assessment.indicators.forEach((ind) => {
+            if(['boolean'].includes(ind.type)){
+                map[ind.id] = [{value: true, label: 'Yes'}, {value: false, label: 'No'}];
+                return;
+            }
+            else if(!['single', 'multi', 'multint'].includes(ind.type)){
+                map[ind.id] = [] //keep each value in map as an array to avoid issues down the line
+                return;
+            }
+            let opts = ind?.options?.map((o) => ({value: o.id, label: o.name})) ?? [];
+            if(ind.allow_none) opts.push({value: 'none', label: 'None of the above'})
+            if(ind.match_options){
+                const valid = responseInfo?.[ind.match_options]?.value;
+                opts = opts.filter(o => (valid?.includes(o?.value) || o?.value == 'none'));
+            }
+            map[ind.id] = opts
+        })
+        return map
+    }, [assessment, responseInfo]);
+
+    useEffect(() => {
+        if(!assessment || !optionsMap) return;
+        assessment.indicators.forEach((ind) => {
+            const options = optionsMap[ind.id]
+            if (!['single', 'multi'].includes(ind.type)) return;
+            if (!options || options.length === 0) return;
+
+            const val = getValues(`response_data.${ind.id}.value`);
+            const valid_ids = options.map(p => p.value);
+
+            if (ind.type === 'multi') {
+                const valArray = Array.isArray(val) ? val : [];
+                const filtered = valArray.filter(v => valid_ids.includes(v));
+                if (JSON.stringify(valArray) !== JSON.stringify(filtered)) {
+                    setValue(`response_data.${ind.id}.value`, filtered);
+                }
+            }
+            if (ind.type === 'single') {
+                const useVal = valid_ids.includes(val) ? val : null;
+                if (JSON.stringify(val) !== JSON.stringify(useVal)) {
+                    setValue(`response_data.${ind.id}.value`, useVal);
+                }
+            }
+        });
+    }, [optionsMap]);
+
     const basics = [
         { name: 'interaction_date', label: 'Date of Interaction', type: "date", rules: { required: "Required", },
             tooltip: 'Give it a memorable name.',
@@ -255,6 +337,7 @@ export default function AssessmentForm(){
         },
     ]
 
+    const visibleInds = (assessment && respondent && visibilityMap) ? assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
     if(loading || !respondent || !task?.assessment) return <LoadingScreen />
     return(
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -263,7 +346,7 @@ export default function AssessmentForm(){
                     <FormSection control={control} fields={basics} header={'Date & Location'} />
 
                     {task.assessment.indicators.sort((a, b) => a.indicator_order-b.indicator_order).map((ind) => (
-                        <ResponseField indicator={ind} assessment={task.assessment} respondent={respondent} responseInfo={responseInfo} />
+                        <ResponseField indicator={ind} shouldShow={visibilityMap[ind.id]} options={optionsMap[ind.id]} />
                     ))}
 
                     < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {

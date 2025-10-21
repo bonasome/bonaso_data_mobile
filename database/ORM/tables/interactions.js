@@ -1,6 +1,6 @@
 import fetchWithAuth from '@/services/fetchWithAuth';
 import BaseModel from '../base';
-import { Indicator } from './indicators';
+import { Indicator, Option } from './indicators';
 import { RespondentLink } from './respondents';
 import { Task } from './tasks';
 
@@ -16,10 +16,13 @@ export class Response extends BaseModel {
         indicator: {type: 'integer'},
         response_date: {type: 'text', allow_null: true},
         response_location: {type: 'text', allow_null: true},
-        value: {type: 'text', allow_null: true}
+        response_value: {type: 'text', allow_null: true},
+        response_option: {type: 'integer', allow_null: true},
+        response_boolean: {type: 'integer', allow_null: true}
     }
     static relationships = [
         {model: Indicator, field: 'indicator', name: 'indicators', relCol: 'id', thisCol: 'indicator', onDelete: 'cascade', fetch: true, many: false},
+        { model: Option, field: 'response_option', name: 'options', relCol: 'id', thisCol: 'option', onDelete: 'cascade', fetch: true, many: false}
     ]
 }
 
@@ -58,11 +61,24 @@ export class Interaction extends BaseModel {
             if(indicator.type == 'multi') {
                 for(const o in response.value){
                     const val = response.value[o]                    
-                    await Response.save({ interaction: savedId, value: val.toString(), response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                    await Response.save({ interaction: savedId, response_option: val, response_boolean: null, response_value: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
                 }
             }
+            else if(indicator.type == 'multint'){
+                for(const o in response.value){
+                    const val = response.value[o]?.value;
+                    const option = response.value[o]?.option                    
+                    await Response.save({ interaction: savedId, response_option: option, response_boolean: null, response_value: val, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                }
+            }
+            else if(indicator.type == 'single'){
+                await Response.save({ interaction: savedId, response_value: null, response_option: response.value, response_boolean: null, response_value: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+            }
+            else if(indicator.type == 'boolean'){
+                await Response.save({ interaction: savedId, response_value: null, response_boolean: response.value, response_option: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+            }
             else{
-                await Response.save({ interaction: savedId, value: response.value.toString(), response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                await Response.save({ interaction: savedId, response_value: response.value, response_boolean: null, response_option: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
             }
             
         }
@@ -100,17 +116,33 @@ export class Interaction extends BaseModel {
 
                 if (r.indicator.type === 'multi') {
                     if (seen.includes(id)) {
-                        responseData[id].value.push(r.value);
+                        responseData[id].value.push(r.response_option.id);
                     } else {
-                        responseData[id] = { value: [r.value] }; // initialize object
+                        responseData[id] = { value: [r.response_option.id] }; // initialize object
                     }
                 } 
+                else if(r.indicator.type == 'multint'){
+                    if (seen.includes(id)) {
+                        responseData[id].value.push({ value: r.response_value, option: r.response_option.id });
+                    } 
+                    else {
+                        responseData[id] = { value: [{value: r.response_value, option: r.response_option.id}] }; // initialize object
+                    }
+                }
                 else {
                     if (seen.includes(id)) {
                         console.error('Duplicate responses recorded');
                         return;
                     }
-                    responseData[id] = r; // store the whole response
+                    if(r.indicator.type == 'single'){
+                        responseData[id] = { value: r.response_option}
+                    }
+                    else  if(r.indicator.type == 'boolean'){
+                        responseData[id] = { value: r.response_boolean}
+                    }
+                    else{
+                        responseData[id] = { value: r.response_value }
+                    }
                 }
                 seen.push(id);
             });
