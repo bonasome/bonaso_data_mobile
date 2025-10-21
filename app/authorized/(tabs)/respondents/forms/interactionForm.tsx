@@ -264,6 +264,7 @@ export default function AssessmentForm(){
     const responseInfo = useWatch({ control, name: "response_data" });
     
     const visibilityMap = useMemo(() => {
+        if(serverIrId && !existing) return null;
         if(!task?.assessment || !respondent) return {};
         const map = {}
         task?.assessment.indicators.forEach((ind) => {
@@ -282,7 +283,7 @@ export default function AssessmentForm(){
     }, [responseInfo]);
 
     useEffect(() => {
-        if (!task?.assessment || !respondent) return;
+        if (!task?.assessment || !respondent || !visibilityMap) return;
         task?.assessment.indicators.forEach(ind => {
             if (!visibilityMap[ind.id]) {
                 const currentValue = responseInfo?.[ind.id]?.value;
@@ -296,6 +297,7 @@ export default function AssessmentForm(){
     }, [visibilityMap, unregister, task?.assessment, respondent]);
 
      const optionsMap = useMemo(() => {
+        if(serverIrId && !existing) return null;
         if(!task?.assessment) return {};
         const map = {}
         task?.assessment.indicators.forEach((ind) => {
@@ -320,6 +322,7 @@ export default function AssessmentForm(){
 
     useEffect(() => {
         if(!task?.assessment || !optionsMap) return;
+        if(serverIrId && !existing) return;
         task?.assessment.indicators.forEach((ind) => {
             const options = optionsMap[ind.id]
             if (!['single', 'multi'].includes(ind.type)) return;
@@ -354,7 +357,7 @@ export default function AssessmentForm(){
     ]
 
     const visibleInds = (task?.assessment && respondent && visibilityMap) ? task?.assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
-    if(loading || !respondent || !task?.assessment) return <LoadingScreen />
+    if(loading || !respondent || !task?.assessment || !visibilityMap) return <LoadingScreen />
     return(
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <StyledScroll>
