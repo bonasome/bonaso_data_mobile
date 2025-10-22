@@ -14,8 +14,7 @@ export const calcDefault = (assessment, existing = null) => {
                       .filter(r => r.indicator.id == ind.id)
                       .map(r => r.response_option?.id)
                 : [];
-            if (ind.allow_none && (!val || val==undefined || val.includes(undefined) || val.length === 0)) {
-                console.log('here')
+            if (ind.allow_none && existing && (!val || val==undefined || val.includes(undefined) || val.length === 0)) {
                 val = ['none'];
             }
             map[ind.id] = { value: val, date: rDate, location: rLocation };

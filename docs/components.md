@@ -47,11 +47,11 @@ Inputs should always be wrapped in our reusable components rather than raw HTML 
 <MultiCheckbox name="kp_status" label="KP Status" options={[{value: 1, label: 'Option1'}, {value: 2, label: 'Option2'}]} value={state} onChange={(v) => setState(v)} /> //onChange: array of values
 ```
 
-- [MultiCheckboxNum](/components/inputs/MultiCheckboxNum.tsx): A list of checkboxes that conditionally show a numeric input if checked. Returns an array of objects with data about the checked item and the number entered. Specifically designed for interactions that need a subcategory and a number, but possibly expandable. 
+- [MultiInt](/components/inputs/MultiInt.tsx): A list of numeric inputs that allows a user to enter a set of numbers broken down by a set of options.
 ```jsx
-<MultiCheckboxNum name="condoms" label="Condoms Received" options={[{id: 1, name: 'Option1'}, {id: 2, name: 'Option2'}]} value={state} onChange={(v) => setState(v)} /> 
+<MultiInt name="condoms" label="Condoms Received" options={[{value: 1, label: 'Option1'}]} value={state} onChange={(v) => setState(v)} /> 
 //when check an input will appear allowing the user to type a number associated with that selected option
-//onChange: returns an array of objects [{id: null, subcategory: {id: 1}, numeric_component: 3}]
+//onChange: returns an array of objects [{option: 1, value: 1}]
 ```
 
 - [RadioButtons](/components/inputs/RadioButtons.tsx): A custom radio button component with custom icons that allows a user to select a single option.
