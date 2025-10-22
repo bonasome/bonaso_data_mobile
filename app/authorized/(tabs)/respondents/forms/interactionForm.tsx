@@ -22,6 +22,13 @@ import { KeyboardAvoidingView, Platform, View } from "react-native";
 import ResponseField from '../../../../../components/respondents/responseField';
 
 export default function AssessmentForm(){
+    /*
+    Form that allows a user to create an interaction from an assessment. 
+    Accepts params for 
+    - a task (taskID)
+    - a respondent (either respondentId if from the server of localRespondentId if local)
+    - an existing interaction (optional, either serverIrId if editing from the server or localIrId if editing a local entry)
+    */
     const router = useRouter();
     const { offlineMode } = useAuth();
     
@@ -29,11 +36,10 @@ export default function AssessmentForm(){
     const { respondentId, localRespondentId, taskId, serverIrId, localIrId } = useLocalSearchParams()
     const [existing, setExisting] = useState(null);
 
-    const [task, setTask] = useState(null);
-    const [respondent, setRespondent] = useState(null);
-    const [redirectId, setRedirectId] = useState('')
+    const [task, setTask] = useState(null); //task with assessment
+    const [respondent, setRespondent] = useState(null); //respondent this is for
+    const [redirectId, setRedirectId] = useState(''); //where to send user on cancel/complete
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
 
 
     //load tasks by default
@@ -53,11 +59,12 @@ export default function AssessmentForm(){
         loadTasks();
     }, [isServerReachable, taskId]);
 
+    //load interaction from server or local if an id is provided
     useEffect(() => {
         const getInteraction = async () => {
-            setLoading(true)
             if(serverIrId){
                 try {
+                    setLoading(true)
                     console.log('fetching indicator details...');
                     const response = await fetchWithAuth(`/api/record/interactions/${serverIrId}/`);
                     const data = await response.json();
@@ -94,6 +101,7 @@ export default function AssessmentForm(){
         getInteraction();
     }, [localIrId, serverIrId]);
 
+    //get respondent details
     useEffect(() => {
         const getRespondentDetails = async () => {
             if(respondentId && isServerReachable){
@@ -130,6 +138,7 @@ export default function AssessmentForm(){
         getRespondentDetails();
     }, [respondentId, localRespondentId]);
 
+    //handle submission
     const onSubmit = async (data) => {
         data.respondent_uuid = localRespondentId;
         data.task_id = taskId;
@@ -156,8 +165,8 @@ export default function AssessmentForm(){
         }
         data.interaction_date = checkDate(data.interaction_date)
         let result = null; //placeholder to track saved Id
-        //if online, try to upload changes directly
 
+        //if online and editing, try to upload changes directly
         if(serverIrId && isServerReachable && !offlineMode){
             try{
                 data.respondent_id = respondent?.id;
@@ -223,6 +232,8 @@ export default function AssessmentForm(){
         }
         return result
     };
+
+    //calculate default values
     const defaultValues = useMemo(() => {
         return {
             interaction_date: existing?.interaction_date ?? '',
@@ -232,21 +243,10 @@ export default function AssessmentForm(){
         }
     }, [existing]);
 
+    //consturct RHF variables
     const methods = useForm({ defaultValues });
     const { register, unregister, control, handleSubmit, reset, watch, setFocus, getValues, setValue, formState: { errors } } = methods;
-    
-    //scroll to errors
-    const onError = (errors) => {
-        const firstError = Object.keys(errors)[0];
-        if (firstError) {
-            setFocus(firstError); // sets cursor into the field
-            // scroll the element into view smoothly
-            const field = document.querySelector(`[name="${firstError}"]`);
-            if (field && field.scrollIntoView) {
-            field.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-        }
-    };
+
 
     //load existing values once existing loads, if provided
     useEffect(() => {
@@ -261,10 +261,12 @@ export default function AssessmentForm(){
         }
     }, [task?.assessment, existing, reset]);
 
+    //watch on response values
     const responseInfo = useWatch({ control, name: "response_data" });
     
+    //determine what indictors should be visible
     const visibilityMap = useMemo(() => {
-        if(serverIrId && !existing) return null;
+        if(serverIrId && !existing) return null; //the server loads these slow, and visibility map will not have finished loading yet, so wait for existing beofre doing anything
         if(!task?.assessment || !respondent) return {};
         const map = {}
         task?.assessment.indicators.forEach((ind) => {
@@ -282,6 +284,7 @@ export default function AssessmentForm(){
         return map;
     }, [responseInfo]);
 
+    //unregister invisible fields to prevent stale values
     useEffect(() => {
         if (!task?.assessment || !respondent || !visibilityMap) return;
         task?.assessment.indicators.forEach(ind => {
@@ -296,6 +299,7 @@ export default function AssessmentForm(){
         });
     }, [visibilityMap, unregister, task?.assessment, respondent]);
 
+    //calculate default options based on indicator type/match options
      const optionsMap = useMemo(() => {
         if(serverIrId && !existing) return null;
         if(!task?.assessment) return {};
@@ -320,6 +324,7 @@ export default function AssessmentForm(){
         return map
     }, [task?.assessment, responseInfo]);
 
+    //reset options based on previous responses if applicable
     useEffect(() => {
         if(!task?.assessment || !optionsMap) return;
         if(serverIrId && !existing) return;
@@ -347,6 +352,7 @@ export default function AssessmentForm(){
         });
     }, [optionsMap]);
 
+    //constant fields across all assessments
     const basics = [
         { name: 'interaction_date', label: 'Date of Interaction', type: "date", rules: { required: "Required", },
             tooltip: 'Give it a memorable name.',
@@ -359,6 +365,7 @@ export default function AssessmentForm(){
         {name: 'comments', label: 'Comments/Notes', type: 'textarea'}
     ]
 
+    //determine if any questions are visible (if not, the respondent is not eligible for this assessment)
     const visibleInds = (task?.assessment && respondent && visibilityMap) ? task?.assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
     if(loading || !respondent || !task?.assessment || !visibilityMap) return <LoadingScreen />
     return(

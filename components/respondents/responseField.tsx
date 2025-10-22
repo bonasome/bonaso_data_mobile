@@ -1,16 +1,22 @@
-import { useState } from "react";
 import { useController, useFormContext } from "react-hook-form";
 
 
 import { View } from 'react-native';
 import Field from "../forms/Field";
 
-export default function ResponseField ({ indicator, shouldShow, options }){
-    const [expanded, setExpanded] = useState(false);
+export default function ResponseField ({ indicator, shouldShow, options=[] }){
+    /*
+    Displays and returns the appropriate input type for an indicator in an assessment.
+    - indicator (object): what indicator is being responded to
+    - shouldShow (boolean): should this indicator be visible
+    - options (array): what options should be used (if applicable)
+    */
+
+    //Form Provider context for RHF
     const { field } = useController({ name: `response_data.${indicator.id}.value` });
     const { control, setValue, getValues } = useFormContext();
 
-
+    //convert indicator types to names used for our inputs
     const convertType = (type) => {
         if(type=='boolean') return 'radio';
         else if(type=='single') return 'radio';
@@ -20,6 +26,7 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         else return type;
     }
 
+    //handle none option for multiselects (may need to unselect option)
     const handleMultiSelectChange = (selectedValues) => {
         const lastElement = selectedValues[selectedValues.length - 1];
         if (lastElement == 'none') {
@@ -28,6 +35,7 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         return selectedValues.filter(v => v !== 'none');
     };
 
+    //set up field
     let fieldConfig = {
         type: convertType(indicator.type), 
         name: `response_data.${indicator.id}.value`, 
@@ -36,6 +44,7 @@ export default function ResponseField ({ indicator, shouldShow, options }){
         onChange: indicator.type == 'multi' ? handleMultiSelectChange : undefined,
     }
 
+    //special required rules (false is a valid value)
     if(indicator.required){
         fieldConfig.rules = {
             validate: (value) => {

@@ -2,7 +2,7 @@ import BaseModel from "../base";
 
 export class LogicCondition extends BaseModel {
     /*
-    Stores an indicator's attributes (m2o through)
+    Stores a specific logic condition linked to a LogicGroup.
     */
     static table = 'logic_conditions';
 
@@ -26,7 +26,7 @@ export class LogicCondition extends BaseModel {
 
 export class LogicGroup extends BaseModel {
     /*
-    Stores an indicator's subcategories (m2o through)
+    Stores a group of logic for one indicator.
     */
     static table = 'logic_groups';
     
@@ -42,7 +42,7 @@ export class LogicGroup extends BaseModel {
 
 export class Option extends BaseModel {
     /*
-    Stores an indicator's prerequisite indicator's (m2o through)
+    Stores an indicator's options.
     */
     static table = 'options';
 
@@ -92,6 +92,9 @@ export class Indicator extends BaseModel {
 }
 
 export class Assessment extends BaseModel {
+    /*
+    Stores information about an assessment (a group of indicators)
+    */
     static table = 'assessments';
 
     static fields = {

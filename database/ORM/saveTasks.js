@@ -52,7 +52,7 @@ export default async function saveTasks(data){
 
         const ass = item.assessment;
 
-        //parse out and save indicator data
+        //parse out and save assessment data
         const assessment= {
             id: ass.id,
             name: ass.name,
@@ -60,6 +60,7 @@ export default async function saveTasks(data){
         await Assessment.save(assessment);
         
         for(const ind of ass.indicators){
+            //save each indicaotr
             const indicator = {
                 id: ind.id,
                 name: ind.name,
@@ -71,6 +72,7 @@ export default async function saveTasks(data){
                 assessment: ass.id,
             }
             Indicator.save(indicator)
+            //save options if applicable
             if(['multi', 'single', 'multint'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
                 for(const o of ind.options){
                     const option = {
@@ -82,6 +84,7 @@ export default async function saveTasks(data){
                 }
             }
 
+            //save logic information if applicable
             if(ind?.logic?.group_operator && ind?.logic?.conditions?.length > 0){
                 const  logic_group = {
                     id: ind.logic.id,

@@ -7,7 +7,7 @@ import { Task } from './tasks';
 
 export class Response extends BaseModel {
     /*
-    Stores data about subcategories related to an indicator (m2o through)
+    Stores data about a specific response linked to an indicator/interaction.
     */
     static table = 'responses';
 
