@@ -55,6 +55,7 @@ All of the apps content (except for login) should be placed within the authoriza
 **Main Component**: [RespondentDetail](/app/authorized/(tabs)/respondents/id.tsx)
 - **Relies on Components**:
     - [Interactions](/components/respondents/interactions.tsx): For viewing a list of previous respondent interactions and a link to edit the interaction.
+    - [Tasks](/app/authorized/(tabs)/tasks.tsx): For a list fo tasks the user can use to jump to an indicatorForm.
 
 **Notes**: When routing to the [detail](/app/authorized/(tabs)/respondents/[id].tsx) file, prefix any local ids with a '-'. Server ids do not need to be prefixed. This is how the component knows whether to contact the server or pull from the database.
 
@@ -68,7 +69,7 @@ All of the apps content (except for login) should be placed within the authoriza
 **Notes**: The respondent meta must also be properly synced for input options to display properly. 
 
 ### Interaction Form
-**Description**: For creating/editing an interaction based on an assessment. Will (ideally) apply logic if applicable.
+**Description**: For creating/editing an interaction based on an assessment. Will (ideally) apply logic if applicable. Requires a taskId param from loading the correct assessment and, if existing, an interaction id (local or from the server), or if new, a respondent id (either local or from the server).
 
 **Main Component**: [InteractionForm](/app/authorized/(tabs)/respondents/forms/interactionForm.tsx)
 

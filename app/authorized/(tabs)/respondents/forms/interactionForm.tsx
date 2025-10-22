@@ -355,6 +355,9 @@ export default function AssessmentForm(){
                 placeholder: 'A brief overview, the purpose, objectives, anything...'
         },
     ]
+    const comments = [
+        {name: 'comments', label: 'Comments/Notes', type: 'textarea'}
+    ]
 
     const visibleInds = (task?.assessment && respondent && visibilityMap) ? task?.assessment.indicators.filter(ind => (visibilityMap[ind.id])) : [];
     if(loading || !respondent || !task?.assessment || !visibilityMap) return <LoadingScreen />
@@ -370,6 +373,7 @@ export default function AssessmentForm(){
                     {visibleInds.length == 0 && <View>
                         <StyledText>This respondent is not eligible for this assessment.</StyledText>
                     </View>}
+                    <FormSection control={control} fields={comments} />
                     {visibleInds.length > 0 && < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
                             console.log("Validation errors:", formErrors);
                         })} label={'Submit'} 
