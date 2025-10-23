@@ -1,10 +1,12 @@
-import { useController, useFormContext } from "react-hook-form";
+import { useEffect } from "react";
+import { useController, useFormContext, useWatch } from "react-hook-form";
 
 
+import theme from "@/themes/themes";
 import { View } from 'react-native';
 import Field from "../forms/Field";
 
-export default function ResponseField ({ indicator, shouldShow, options=[] }){
+export default function ResponseField ({ indicator, defaultVal, isVisible, onFieldChange, options=[] }){
     /*
     Displays and returns the appropriate input type for an indicator in an assessment.
     - indicator (object): what indicator is being responded to
@@ -14,7 +16,7 @@ export default function ResponseField ({ indicator, shouldShow, options=[] }){
 
     //Form Provider context for RHF
     const { field } = useController({ name: `response_data.${indicator.id}.value` });
-    const { control, setValue, getValues } = useFormContext();
+    const { control, setValue, getValues, unregister, resetField } = useFormContext();
 
     //convert indicator types to names used for our inputs
     const convertType = (type) => {
@@ -35,6 +37,27 @@ export default function ResponseField ({ indicator, shouldShow, options=[] }){
         return selectedValues.filter(v => v !== 'none');
     };
 
+    // calculate default value for this question
+   const value = useWatch({ control, name: `response_data.${indicator.id}` });
+
+    useEffect(() => {
+    if (!indicator) return;
+        onFieldChange(indicator.id, value);
+    }, [value, indicator.id, onFieldChange]);
+
+    // unregister invisible fields
+    useEffect(() => {
+        if (!isVisible) {
+            unregister(`response_data.${indicator.id}.value`);
+        }
+    }, [isVisible, unregister, indicator.id]);
+
+    useEffect(() => {
+        if (defaultVal && isVisible) {
+            resetField(`response_data.${indicator.id}`, { defaultValue: defaultVal });
+        }
+    }, [defaultVal, isVisible, indicator.id, setValue]);
+
     //set up field
     let fieldConfig = {
         type: convertType(indicator.type), 
@@ -45,7 +68,7 @@ export default function ResponseField ({ indicator, shouldShow, options=[] }){
     }
 
     //special required rules (false is a valid value)
-    if(indicator.required){
+    if(indicator.required && isVisible){
         fieldConfig.rules = {
             validate: (value) => {
                 // Allow false, 0, empty array, but disallow null or undefined
@@ -58,10 +81,10 @@ export default function ResponseField ({ indicator, shouldShow, options=[] }){
         fieldConfig.label = `${indicator.indicator_order + 1}. ${indicator.name}*`
     }
 
-    if(!shouldShow) return <></>
+    if(!isVisible) return null;
     return(
         <View>
-            <View style={{display: 'flex', flexDirection: 'row'}}>
+            <View style={{display: 'flex', flexDirection: 'row', backgroundColor: theme.colors.bonasoMain, padding: 20, margin: 10}}>
                 <Field control={control} field={fieldConfig} />
             </View>
         </View>

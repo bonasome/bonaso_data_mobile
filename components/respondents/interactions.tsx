@@ -6,7 +6,7 @@ import theme from "@/themes/themes";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import prettyDates from '../../services/prettyDates';
 import IndexWrapper from "../IndexWrapper";
@@ -24,7 +24,7 @@ function InteractionCard({ ir, fromServer=false }){
 
     const router = useRouter();
     const { isServerReachable } = useConnection();
-
+    const [expanded, setExpanded] = useState(false);
     //router push to go to interaction edit screen. Pass the server id if available and the local id if not
     function goToEditIr(id){
         router.push(fromServer ? { 
@@ -35,13 +35,140 @@ function InteractionCard({ ir, fromServer=false }){
             params: { localIrId: id, localRespondentId: ir.respondent_uuid, taskId: ir.task.id } 
         } );
     }
+    async function handleDelete(id) {
+        await Interaction.delete(id);
+        alert('Interaction Deleted!')
+    }
+
+    //helper to build a list of responses. Will combine multiselects stored separtely
+    const cleanedResponses = useMemo(() => {
+        const seen = new Set();
+        const consolidated = [];
+
+        ir.responses.forEach((r) => {
+            // Check if this indicator was already handled
+            let existing = consolidated.find(i => i.indicator.id === r.indicator.id);
+
+            if (r.indicator.type === 'multi' && !r.response_none) {
+                if (existing) {
+                    // Combine response options
+                    existing.response_option = [
+                        ...(Array.isArray(existing.response_option) ? existing.response_option : [existing.response_option]),
+                        r.response_option
+                    ];
+                } else {
+                    // First occurrence — initialize as array
+                    consolidated.push({
+                        ...r,
+                        response_option: [r.response_option]
+                    });
+                    seen.add(r.indicator.id);
+                }
+            } 
+            else if(r.indicator.type == 'multint'){
+                if(existing){
+                    //append option/value as a single string
+                    existing.response_value.push(`${r.response_option.name} - ${[null, ''].includes(r.response_value) ? '0' : r.response_value}`)
+                }
+                else {
+                    // First occurrence — initialize as array
+                    consolidated.push({
+                        ...r,
+                        response_value: [`${r.response_option.name} - ${[null, ''].includes(r.response_value) ? '0' : r.response_value}`]
+                    });
+                    seen.add(r.indicator.id);
+                }
+            }
+            else {
+                if (existing) {
+                    //this shouldn't happen
+                    console.warn('POSSIBLY SUSPECT RESPONSE DATA!');
+                    return;
+                }
+                consolidated.push({ ...r });
+                seen.add(r.indicator.id);
+            }
+        });
+
+        return consolidated;
+    }, [ir]);
 
     return(
         <View key={ir.id} style={fromServer ? styles.interactionCard : styles.unuploadedCard}>
             {/* Alter style if the interaction is not uploaded so the user knows */}
-            <StyledText style={{ marginBottom: 10 }} type="defaultSemiBold">{ir.task?.display_name}</StyledText>
-            <StyledText style={{ marginBottom: 10 }}>{prettyDates(ir.interaction_date)} at {ir.interaction_location}</StyledText>
-            <IconInteract onPress={() => goToEditIr(ir.id)} icon={<MaterialIcons name="edit" size={24} color="white" />} style={{marginStart: 'auto'}}/>
+            <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+                <StyledText style={{ marginBottom: 10 }} type="defaultSemiBold">{ir.task?.display_name}</StyledText>
+                <StyledText style={{ marginBottom: 10 }}>{prettyDates(ir.interaction_date)} at {ir.interaction_location}</StyledText>
+            </TouchableOpacity>
+            {expanded && <View>
+                {cleanedResponses.sort((a, b) => (fromServer ? a.indicator.order - b.indicator.order : a.indicator.indicator_order - b.indicator.indicator_order)).map(r => {
+                    const rDate = r.response_date != ir.interaction_date ? `(${prettyDates(r.response_date)})` : '';
+                    const rLoc = r.response_location != ir.interaction_location ? `(${r.response_location})` : '';
+                    const app = rDate + ' ' + rLoc;
+                    const order = fromServer ? r?.indicator?.order + 1 : r?.indicator?.indicator_order + 1
+                    if(r.response_none){
+                        return(
+                            <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10}}>
+                                <StyledText type="defaultSemiBold">{order}. {r.indicator.name}</StyledText>
+                                <View style={styles.ul}>
+                                <View style={styles.li}>
+                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                    <StyledText>"None Selected" {app}</StyledText>
+                                </View>
+                                </View>
+                            </View>
+                        )
+                    }
+                    else if(r.indicator.type == 'multi'){
+                        return(<View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10}}>
+                            <StyledText type="defaultSemiBold">{order}. {r.indicator.name}</StyledText>
+                            <View style={styles.ul}>
+                                {r.response_option.map((o) => (<View style={styles.li}>
+                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                    <StyledText>{o.name} {app}</StyledText>
+                                </View>))}
+                            </View>
+                        </View>)
+                    }
+                    else if(r.indicator.type == 'multint'){
+                        return(<View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10}}>
+                            <StyledText type="defaultSemiBold">{order}. {r.indicator.name}</StyledText>
+                             <View style={styles.ul}>
+                                {r.response_value.map((v) => (<View style={styles.li}>
+                                    <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                    <StyledText>{v} {app}</StyledText>
+                                </View>))}
+                            </View>
+                        </View>)
+                    }
+                    else{
+                        let val = '';
+                        if(r.indicator.type == 'single') val = r.response_option?.name;
+                        else if(r.indicator.type == 'boolean') val = r.response_boolean ? 'Yes' : 'No';
+                        else val = r.response_value;
+                        return(<View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10}}>
+                            <StyledText type="defaultSemiBold">{order}. {r.indicator.name}</StyledText>
+                            <View style={styles.ul}>
+                            <View style={styles.li}>
+                                <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
+                                <StyledText>"{val}" {app}</StyledText>
+                            </View>
+                            </View>
+
+                        </View>)
+                    }
+                })}
+                {ir.comments && <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10}}>
+                     <StyledText type="defaultSemiBold">Comments:</StyledText>
+                     <StyledText>{ir.comments}</StyledText>
+                </View>}
+            </View>}
+            
+            <View style={{ display: 'flex', flexDirection: 'row'}}>
+                <IconInteract onPress={() => goToEditIr(ir.id)} icon={<MaterialIcons name="edit" size={24} color="white" />} style={{marginStart: 'auto'}}/>
+                {/* Consider deleting this delete function when moving out of dev */}
+                {!fromServer && <IconInteract onPress={() => handleDelete(ir.id)} icon={<MaterialIcons name="delete" size={24} color="white" />} style={{marginStart: 'auto'}}/>}
+            </View>
         </View>
     )
 }

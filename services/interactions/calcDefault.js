@@ -21,7 +21,7 @@ export const calcDefault = (assessment, existing = null) => {
                       .map(r => r.response_option?.id)
                 : [];
             //none options are not stored in the db, so if there are values and this should be visible set it to 'none', since that was the intent
-            if (ind.allow_none && existing && (!val || val==undefined || val.includes(undefined) || val.length === 0)) {
+            if (ind.allow_none && firstMatch?.response_none) {
                 val = ['none'];
             }
             map[ind.id] = { value: val, date: rDate, location: rLocation };
@@ -39,9 +39,8 @@ export const calcDefault = (assessment, existing = null) => {
             let val;
             if (existing) {
                 //none options are not recorded in the DB
-                if (ind.allow_none) {
-                    //if not found but existing, this was a none
-                    val = firstMatch?.response_option?.id ?? 'none';
+                if (ind.allow_none && firstMatch?.response_none) {
+                    val = 'none';
                 } 
                 else {
                     val = firstMatch?.response_option?.id ?? null;

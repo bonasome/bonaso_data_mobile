@@ -7,9 +7,14 @@ export default function MultiInt({ name, label, options, value, onChange, error,
     // options {value: id, label: name}
     // value: [id]: {value: int, option: fk}
     const setValue = (val, option) => {
-        console.log(value, option)
-        let toUpdate = value.find(v => v.option == option)
-        const left = value.filter(v => v.option != option)
+        let useVal = value
+        if(value==undefined || !value){
+            useVal = options.map((v) => (
+                {option: v.value, value: ''}
+            ))
+        }
+        let toUpdate = useVal.find(v => v.option == option)
+        const left = useVal.filter(v => v.option != option)
         toUpdate.value = val;
         onChange([...left, toUpdate])
     }

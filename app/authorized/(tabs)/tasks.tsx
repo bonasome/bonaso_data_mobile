@@ -1,11 +1,12 @@
 import IndexWrapper from "@/components/IndexWrapper";
+import SimplePicker from "@/components/inputs/SimplePicker";
 import StyledButton from "@/components/inputs/StyledButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import StyledScroll from "@/components/styledScroll";
 import StyledText from "@/components/styledText";
 import { useAuth } from "@/context/AuthContext";
 import { useConnection } from "@/context/ConnectionContext";
-import { Task } from "@/database/ORM/tables/tasks";
+import { Organization, Project, Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -58,7 +59,12 @@ export default function Tasks({ localRespondent=null, serverRespondent=null, for
     const [expanded, setExpanded] = useState(true);
     const [tasks, setTasks] = useState([]); //tasks to display
 
+    const [org, setOrg] = useState(null);
+    const [project, setProject] = useState(null);
+    const [projects, setProjects] = useState([]);
+    const [orgs, setOrgs] = useState([])
     //fetch the tasks from the db
+    
     useEffect(() => {
         const loadTasks = async () => {
             if (isServerReachable && !offlineMode){
@@ -66,11 +72,31 @@ export default function Tasks({ localRespondent=null, serverRespondent=null, for
             }   
             const myTasks = await Task.all();
             let serialized = await Promise.all(myTasks.map(t => t.serialize())); //serialize the array
-            if(!search || search != '') setTasks(serialized.filter((t) => (t.display_name.toLowerCase().includes(search.toLowerCase()))));
-            else setTasks(serialized);
+            let filtered = serialized;
+            console.log(org)
+            if(org) filtered = filtered.filter(t => (t.organization.id == org));
+            if(project) filtered = filtered.filter(t => (t.project.id == project));
+            if(!search || search != '') filtered = filtered.filter((t) => (t.display_name.toLowerCase().includes(search.toLowerCase())));
+            setTasks(filtered);
         };
         loadTasks();
-    }, [isServerReachable, search]);
+    }, [isServerReachable, search, org, project]);
+    
+
+    useEffect(() => {
+        const loadProjects = async() => {
+            const myProj = await Project.all();
+            let serialized = await Promise.all(myProj.map(p => p.serialize()));
+            setProjects(serialized.map((p) => ({value: p.id, label: p.name})))
+        }
+        loadProjects();
+        const loadOrgs = async() => {
+            const myOrgs= await Organization.all();
+            let serialized = await Promise.all(myOrgs.map(o => o.serialize()));
+            setOrgs(serialized.map((o) => ({value: o.id, label: o.name})))
+        }
+        loadOrgs();
+    }, []);
 
     const tasksToMap = tasks.slice((page-1)*10, ((page-1)*10+10));
     return (
@@ -82,6 +108,8 @@ export default function Tasks({ localRespondent=null, serverRespondent=null, for
                     <StyledText type="subtitle">Start Assessment</StyledText>
                     {expanded ? <FontAwesome name="arrow-circle-o-up" size={24} color="white" style={{marginLeft: 'auto'}}/> : <FontAwesome name="arrow-circle-o-down" size={24} color="white" style={{marginLeft: 'auto'}}/>}
                 </TouchableOpacity>}
+                <SimplePicker onChange={(o) => setOrg(o)} options={orgs} name={'organization'} label={'Select an Organization'} value={org}/>
+                <SimplePicker onChange={(p) => setProject(p)} options={projects} name={'project'} label={'Select a Project'} value={project} />
                 {expanded && <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
                     <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
                     {tasksToMap.length > 0 && tasksToMap.map((t) => (

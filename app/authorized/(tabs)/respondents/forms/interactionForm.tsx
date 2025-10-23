@@ -16,8 +16,8 @@ import prettyDates from "@/services/prettyDates";
 import syncTasks from "@/services/syncTasks";
 import theme from "@/themes/themes";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
 import { KeyboardAvoidingView, Platform, View } from "react-native";
 import ResponseField from '../../../../../components/respondents/responseField';
 
@@ -142,7 +142,6 @@ export default function AssessmentForm(){
     const onSubmit = async (data) => {
         data.respondent_uuid = localRespondentId;
         data.task_id = taskId;
-
         //make sure date is within the project range and not in the future
         const projectStart = new Date(existing?.task?.project?.start);
         const projectEnd = new Date(existing?.task?.project?.end);
@@ -165,13 +164,11 @@ export default function AssessmentForm(){
         }
         data.interaction_date = checkDate(data.interaction_date)
         let result = null; //placeholder to track saved Id
-
         //if online and editing, try to upload changes directly
         if(serverIrId && isServerReachable && !offlineMode){
             try{
                 data.respondent_id = respondent?.id;
                 setLoading(true);
-                console.log('uploading interaction', data);
                 const response = await fetchWithAuth(`/api/record/interactions/${serverIrId}/`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
@@ -232,9 +229,9 @@ export default function AssessmentForm(){
         }
         return result
     };
-
     //calculate default values
     const defaultValues = useMemo(() => {
+        if(serverIrId && !existing) return null;
         return {
             interaction_date: existing?.interaction_date ?? '',
             interaction_location: existing?.interaction_location ?? '',
@@ -246,62 +243,43 @@ export default function AssessmentForm(){
     //consturct RHF variables
     const methods = useForm({ defaultValues });
     const { register, unregister, control, handleSubmit, reset, watch, setFocus, getValues, setValue, formState: { errors } } = methods;
-
-
+    
     //load existing values once existing loads, if provided
     useEffect(() => {
-        if (task?.assessment) {
-            const defaults = {
-                interaction_date: existing?.interaction_date ?? '',
-                interaction_location: existing?.interaction_location ?? '',
-                response_data: calcDefault(task?.assessment, existing),
-                comments: existing?.comments ?? '',
-            };
-            reset(defaults);
+        if (task?.assessment && !(serverIrId && !existing)) {
+            reset(defaultValues);
         }
     }, [task?.assessment, existing, reset]);
 
-    //watch on response values
-    const responseInfo = useWatch({ control, name: "response_data" });
-    
-    //determine what indictors should be visible
-    const visibilityMap = useMemo(() => {
-        if(serverIrId && !existing) return null; //the server loads these slow, and visibility map will not have finished loading yet, so wait for existing beofre doing anything
-        if(!task?.assessment || !respondent) return {};
-        const map = {}
-        task?.assessment.indicators.forEach((ind) => {
-             const logic = ind.logic;
-            //no logic, always return true
-            if(!logic?.conditions || logic?.conditions?.length == 0) map[ind.id] = true;
-            else if(ind.logic.group_operator == 'AND'){
-                map[ind.id] = logic.conditions.every(c => (checkLogic(c, responseInfo, task?.assessment, respondent)))
-            }
-            //must be an OR
-            else{
-                map[ind.id] =  logic.conditions.some(c => (checkLogic(c, responseInfo, task?.assessment, respondent)))
-            }
-        });
-        return map;
-    }, [responseInfo]);
+    const [responseMap, setResponseMap] = useState({});
 
-    //unregister invisible fields to prevent stale values
-    useEffect(() => {
-        if (!task?.assessment || !respondent || !visibilityMap) return;
-        task?.assessment.indicators.forEach(ind => {
-            if (!visibilityMap[ind.id]) {
-                const currentValue = responseInfo?.[ind.id]?.value;
-                // ✅ Only unregister/reset if there’s actually data
-                if (currentValue !== undefined) {
-                    setValue(`response_data.${ind.id}`, {}, { shouldDirty: false });
-                    unregister(`response_data.${ind.id}.value`);
-                }
-            }
+    const handleFieldChange = useCallback((id, value) => {
+        setResponseMap(prev => {
+            // avoid unnecessary re-renders if the value hasn’t changed
+            if (JSON.stringify(prev[id]) === JSON.stringify(value)) return prev;
+            return { ...prev, [id]: value };
         });
-    }, [visibilityMap, unregister, task?.assessment, respondent]);
+    }, []);
+
+    const visibilityMap = useMemo(() => {
+        if (!task?.assessment || !respondent) return null;
+        const map = {};
+        for (const ind of task?.assessment.indicators) {
+            const logic = ind.logic;
+            if (!logic?.conditions?.length) {
+            map[ind.id] = true;
+            continue;
+            }
+            map[ind.id] =
+            logic.group_operator === "AND"
+                ? logic.conditions.every(c => checkLogic(c, responseMap, task?.assessment, respondent))
+                : logic.conditions.some(c => checkLogic(c, responseMap, task?.assessment, respondent));
+        }
+        return map;
+    }, [task?.assessment, respondent, responseMap]);
 
     //calculate default options based on indicator type/match options
      const optionsMap = useMemo(() => {
-        if(serverIrId && !existing) return null;
         if(!task?.assessment) return {};
         const map = {}
         task?.assessment.indicators.forEach((ind) => {
@@ -316,18 +294,17 @@ export default function AssessmentForm(){
             let opts = ind?.options?.map((o) => ({value: o.id, label: o.name})) ?? [];
             if(ind.allow_none) opts.push({value: 'none', label: 'None of the above'})
             if(ind.match_options){
-                const valid = responseInfo?.[ind.match_options]?.value;
+                const valid = responseMap?.[ind.match_options]?.value;
                 opts = opts.filter(o => (valid?.includes(o?.value) || o?.value == 'none'));
             }
             map[ind.id] = opts
         })
         return map
-    }, [task?.assessment, responseInfo]);
+    }, [task?.assessment, responseMap]);
 
     //reset options based on previous responses if applicable
     useEffect(() => {
         if(!task?.assessment || !optionsMap) return;
-        if(serverIrId && !existing) return;
         task?.assessment.indicators.forEach((ind) => {
             const options = optionsMap[ind.id]
             if (!['single', 'multi'].includes(ind.type)) return;
@@ -352,6 +329,8 @@ export default function AssessmentForm(){
         });
     }, [optionsMap]);
 
+    const irDate = watch('interaction_date')
+    const irLoc = watch('interaction_location')
     //constant fields across all assessments
     const basics = [
         { name: 'interaction_date', label: 'Date of Interaction', type: "date", rules: { required: "Required", },
@@ -375,13 +354,13 @@ export default function AssessmentForm(){
                     <FormSection control={control} fields={basics} header={'Date & Location'} />
 
                     {task?.assessment.indicators.sort((a, b) => a.indicator_order-b.indicator_order).map((ind) => (
-                        <ResponseField indicator={ind} shouldShow={visibilityMap[ind.id]} options={optionsMap[ind.id]} />
+                        <ResponseField indicator={ind} defaultVal={defaultValues?.response_data?.[ind.id]} isVisible={visibilityMap?.[ind.id] ?? false} options={optionsMap[ind.id]} onFieldChange={handleFieldChange} />
                     ))}
                     {visibleInds.length == 0 && <View>
                         <StyledText>This respondent is not eligible for this assessment.</StyledText>
                     </View>}
                     <FormSection control={control} fields={comments} />
-                    {visibleInds.length > 0 && < StyledButton onPress={handleSubmit(onSubmit, (formErrors) => {
+                    {visibleInds.length > 0 && < StyledButton disabled={(irDate== '' || irLoc == '')} onPress={handleSubmit(onSubmit, (formErrors) => {
                             console.log("Validation errors:", formErrors);
                         })} label={'Submit'} 
                     />}

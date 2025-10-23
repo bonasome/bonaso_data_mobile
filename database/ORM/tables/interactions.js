@@ -18,7 +18,8 @@ export class Response extends BaseModel {
         response_location: {type: 'text', allow_null: true},
         response_value: {type: 'text', allow_null: true},
         response_option: {type: 'integer', allow_null: true},
-        response_boolean: {type: 'integer', allow_null: true}
+        response_boolean: {type: 'integer', allow_null: true},
+        response_none: {type: 'integer', allow_null: true},
     }
     static relationships = [
         {model: Indicator, field: 'indicator', name: 'indicators', relCol: 'id', thisCol: 'indicator', onDelete: 'cascade', fetch: true, many: false},
@@ -64,9 +65,10 @@ export class Interaction extends BaseModel {
                     const val = response.value[o];                 
                     await Response.save({ 
                         interaction: savedId, 
-                        response_option: val, 
+                        response_option: val == 'none' ? null : val, 
                         response_boolean: null, 
                         response_value: null, 
+                        response_none: val == 'none' ? 1 : null,
                         response_date: mainData.interaction_date, 
                         response_location: mainData.interaction_location, 
                         indicator: key 
@@ -81,10 +83,18 @@ export class Interaction extends BaseModel {
                 }
             }
             else if(indicator.type == 'single'){
-                await Response.save({ interaction: savedId, response_value: null, response_option: response.value, response_boolean: null, response_value: null, response_date: mainData.interaction_date, response_location: mainData.interaction_location, indicator: key })
+                await Response.save({ interaction: savedId, 
+                    response_value: null, 
+                    response_option: response.value == 'none' ? null : response.value, 
+                    response_none: response.value == 'none' ? 1 : null,
+                    response_boolean: null, 
+                    response_value: null, 
+                    response_date: mainData.interaction_date, 
+                    response_location: mainData.interaction_location, 
+                    indicator: key 
+                })
             }
             else if(indicator.type == 'boolean'){
-                console.log(response.value)
                 let val = null;
                 if(response.value == true) val = 1;
                 if(response.value == false) val = 0;
@@ -120,7 +130,6 @@ export class Interaction extends BaseModel {
             //find related respondent, even if this was created offline, respondents are uploaded first so they should have a server ID by now 
             const respondent_link = await RespondentLink.find(ir.respondent_uuid, 'uuid');
             let server_id = respondent_link?.server_id;
-            if(ir.respondent_uuid == '7247baa0-6b8d-49df-8f89-6f00e564f40d') server_id = 4
             if(!server_id){
                 console.error(`No respondent found in server for interaction ${ir.id}`);
                 continue;
@@ -131,14 +140,13 @@ export class Interaction extends BaseModel {
             let seen = [];
 
             ir.responses.forEach((r) => {
-                console.log(r)
                 const id = r.indicator.id;
                 if (r.indicator.type === 'multi') {
                     if (seen.includes(id)) {
                         responseData[id].value.push(r.response_option.id);
                     } 
                     else {
-                        if(r.indicator.allow_none && r.response_option == null){
+                        if(r.indicator.allow_none && r.response_none){
                             responseData[id] = { value: ['none'] }; 
                         } 
                         else{
@@ -161,7 +169,7 @@ export class Interaction extends BaseModel {
                         return;
                     }
                     if(r.indicator.type == 'single'){
-                        if(r.indicator.allow_none && r.response_option == null){
+                        if(r.indicator.allow_none && r.response_none){
                             responseData[id] = { value: 'none' }; 
                         } 
                         else{
@@ -177,12 +185,12 @@ export class Interaction extends BaseModel {
                 }
                 seen.push(id);
             });
-            console.log(responseData)
             toSync.push({
                 local_id: ir.id,
                 respondent_id: server_id,
                 interaction_date: ir.interaction_date,
                 interaction_location: ir.interaction_location,
+                comments: ir.comments,
                 task_id: ir.task.id,
                 response_data: responseData,
             })
