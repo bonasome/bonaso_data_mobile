@@ -49,7 +49,7 @@ function Me() {
     }, []);
 
     return(
-        <View style={{ margin: 5}}>
+        <View>
             {me  && <View>
                 <StyledText type="defaultSemiBold">You are signed in as {me.display_name} with {me.organization.name}</StyledText> 
             </View>}
@@ -120,6 +120,9 @@ export default function Index() {
 
     return (
         <StyledScroll>
+            <View style={{ padding: 20, backgroundColor: theme.colors.bonasoUberDarkAccent}}>
+            <StyledText type="title">Welcome!</StyledText>
+            <View style={{ padding: 5}}></View>
             {(isServerReachable && !offlineMode) ? <Me /> : <TouchableOpacity onPress={() => router.push('/authorized/(tabs)/about/offlineInfo')} style={{ backgroundColor: theme.colors.warningBg, padding: 8 }}>
                 <StyledText style={{color: theme.colors.warningText, textAlign: 'center'}} type="defaultSemiBold">
                     You are offline! Some features may not be available. Tap here for more information.
@@ -138,7 +141,7 @@ export default function Index() {
                     <StyledText type="defaultSemiBold" style={styles.buttonText}>View my tasks</StyledText>
                 </TouchableOpacity>
             </View>
-            
+            </View>
         </StyledScroll>
     );
 }

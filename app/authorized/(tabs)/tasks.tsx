@@ -1,4 +1,6 @@
+import AssessmentOverview from "@/components/assessmentOverview";
 import IndexWrapper from "@/components/IndexWrapper";
+import IconInteract from "@/components/inputs/IconInteract";
 import SimplePicker from "@/components/inputs/SimplePicker";
 import StyledButton from "@/components/inputs/StyledButton";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -10,6 +12,7 @@ import { Organization, Project, Task } from "@/database/ORM/tables/tasks";
 import syncTasks from '@/services/syncTasks';
 import theme from "@/themes/themes";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -23,10 +26,11 @@ function TaskCard({ task, localRespondent=null, serverRespondent=null }) {
    const router= useRouter();
     const [expanded, setExpanded] = useState(false);
     const [labels, setLabels] = useState({});
-
+    const [detailView, setDetailView] = useState(false);
     if(!task) return <LoadingSpinner />
     return(
         <View style={styles.card}>
+            {detailView && <AssessmentOverview assessment={task?.assessment} onClose={() => setDetailView(false)}/> }
             <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ marginBottom: 5 }}>
                 {task?.assessment && <StyledText type='defaultSemiBold' >{task.display_name}</StyledText>}
             </TouchableOpacity>
@@ -37,7 +41,8 @@ function TaskCard({ task, localRespondent=null, serverRespondent=null }) {
                     <View>
                         <StyledText>{ind.indicator_order + 1}. {ind.name}</StyledText>
                     </View>
-                ))}            
+                ))} 
+                <IconInteract icon={<FontAwesome5 name="info-circle" size={24} color="white" style={{marginLeft: 'auto'}} />} onPress={() => setDetailView(true)} />           
             </View>}
             {(localRespondent || serverRespondent) && <StyledButton onPress={() => router.push({
                     pathname: '/authorized/(tabs)/respondents/forms/interactionForm',
@@ -102,15 +107,15 @@ export default function Tasks({ localRespondent=null, serverRespondent=null, for
     return (
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll style={forAssessment ? { margin: 0, padding: 0} : {}}>
-            <View style={forAssessment ? {backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 20} : {}}>
+            <View style={{backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 30}}>
                 {!forAssessment && <StyledText type="title">Your Tasks</StyledText>}
                 {forAssessment && <TouchableOpacity onPress={() => setExpanded(!expanded)} style={{ display: 'flex', flexDirection: 'row', marginBottom: 10 }}>
                     <StyledText type="subtitle">Start Assessment</StyledText>
                     {expanded ? <FontAwesome name="arrow-circle-o-up" size={24} color="white" style={{marginLeft: 'auto'}}/> : <FontAwesome name="arrow-circle-o-down" size={24} color="white" style={{marginLeft: 'auto'}}/>}
                 </TouchableOpacity>}
-                <SimplePicker onChange={(o) => setOrg(o)} options={orgs} name={'organization'} label={'Select an Organization'} value={org}/>
-                <SimplePicker onChange={(p) => setProject(p)} options={projects} name={'project'} label={'Select a Project'} value={project} />
                 {expanded && <IndexWrapper page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={false} entries={tasks.length}>
+                    <SimplePicker onChange={(o) => setOrg(o)} options={orgs} name={'organization'} label={'Select an Organization'} value={org}/>
+                    <SimplePicker onChange={(p) => setProject(p)} options={projects} name={'project'} label={'Select a Project'} value={project} />
                     <StyledText style={{ marginTop: 5, marginBottom: 5, fontStyle: 'italic' }} type="defaultSemiBold">Click on a task to reveal more information.</StyledText>
                     {tasksToMap.length > 0 && tasksToMap.map((t) => (
                         <TaskCard key={t.id} task={t} localRespondent={localRespondent} serverRespondent={serverRespondent} />
@@ -129,7 +134,7 @@ export default function Tasks({ localRespondent=null, serverRespondent=null, for
 const styles = StyleSheet.create({
     card: {
         padding: 20,
-        backgroundColor: theme.colors.bonasoUberDarkAccent,
+        backgroundColor: theme.colors.bonasoMain,
         flex: 1,
         justifyContent: 'center',
         marginTop: 10,

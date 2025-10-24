@@ -60,6 +60,8 @@ All of the apps content (except for login) should be placed within the authoriza
 **Notes**: When routing to the [detail](/app/authorized/(tabs)/respondents/[id].tsx) file, prefix any local ids with a '-'. Server ids do not need to be prefixed. This is how the component knows whether to contact the server or pull from the database.
 
 **Tasks** must be properly synced for interactions/add interactions to work. The **respondent meta** must also be properly synced for labels to display properly. 
+- **Relies on Components**:
+    - [AssessmentOverview](/components/assessmentOverview.tsx): For viewing full list of questions with logic.
 
 ### Respondent Form
 **Description**: For creating/editing a respondent. Takes a serverId or a localId param for editing respondents, depending on if the respondent is being pulled from the server or locally from the device. 

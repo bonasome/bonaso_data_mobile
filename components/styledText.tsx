@@ -20,6 +20,7 @@ const styles = StyleSheet.create({
     default: {
         color: '#fff',
         fontSize: 14,
+        margin: 3,
     },
     defaultSemiBold: {
         color: '#fff',

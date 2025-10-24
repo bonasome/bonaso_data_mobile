@@ -26,7 +26,7 @@ function RespondentCard({ respondent, fromServer }){
     const param = fromServer ? respondent?.id : `-${respondent?.local_id}`;
     return (
         <View>
-            <TouchableOpacity onPress={() => router.push(`/authorized/(tabs)/respondents/${param}`)} style={ fromServer ? { backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 10, margin: 10 } : { backgroundColor: theme.colors.warningText, padding: 10, margin: 10 }}>
+            <TouchableOpacity onPress={() => router.push(`/authorized/(tabs)/respondents/${param}`)} style={ fromServer ? { backgroundColor: theme.colors.bonasoMain, padding: 10, margin: 10 } : { backgroundColor: theme.colors.warningText, padding: 10, margin: 10 }}>
                 <StyledText type="defaultSemiBold">{display}</StyledText>
             </TouchableOpacity>
         </View>
@@ -84,8 +84,13 @@ export default function Respondents(){
     return(
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: theme.colors.bonasoDarkAccent }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <StyledScroll>
+            <View style={{ backgroundColor: theme.colors.bonasoUberDarkAccent, padding: 30 }}>
+            <StyledText type="title">Respondents</StyledText>
             <IndexWrapper entries={entries} page={page} onPageChange={setPage} onSearchChange={setSearch} fromServer={(isServerReachable && !offlineMode)}>
+                
+                
                 <StyledButton onPress={() => router.push(`/authorized/(tabs)/respondents/forms/respondentForm`)} label={'Create New Respondent'}/>
+                <View style={{ padding: 10 }}></View>
                 {localRespondents.length == 0 && serverRespondents.length == 0 && <View style={{padding: 10}}>
                     <StyledText type='defaultSemiBold'>No respondents found...</StyledText>
                 </View>}
@@ -99,6 +104,7 @@ export default function Respondents(){
                         serverRespondents.map(r => (<RespondentCard key={r.id} respondent={r} fromServer={true}/>))}
                 </View>}
             </IndexWrapper>
+            </View>
             <View style={{ padding: 15 }}></View>
         </StyledScroll>
         </KeyboardAvoidingView>

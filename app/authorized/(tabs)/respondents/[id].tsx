@@ -250,12 +250,12 @@ export default function RespondentDetail(){
                     <StyledText type="defaultSemiBold">Pregnancies</StyledText>
                     <IconInteract icon={<Ionicons name="add-circle" size={24} color="white" />} onPress={() => setEditingPreg(true)} label={'Add new pregnancy'}/>
                     {respondent?.pregnancies?.length > 0 && <View>
-                        {respondent?.pregnancies.map((p) => (<View key={p.id} style={{ display: 'flex', flexDirection: 'row', maxWidth: '75%', padding: 4, backgroundColor: theme.colors.bonasoMain }}>
+                        {respondent?.pregnancies.map((p) => (<View key={p.id} style={{ display: 'flex', flexDirection: 'row', maxWidth: '75%', padding: 4, borderBottomColor: 'white', borderBottomWidth: 3, marginTop: 10 }}>
                             <StyledText>
                                 {p.term_ended ? `Pregnant from ${prettyDates(p.term_began)} to ${prettyDates(p.term_ended)}` : 
                             `Pregnant since ${prettyDates(p.term_began)}`}
                             </StyledText>
-                            <IconInteract onPress={() => {setEditingPreg(true); setTargetPreg(p)}} icon={<FontAwesome6 name="pencil" size={24} color="white" />} style={{ marginStart: 12 }}/>
+                            <IconInteract onPress={() => {setEditingPreg(true); setTargetPreg(p)}} icon={<FontAwesome6 name="pencil" size={18} color="white" />} style={{ marginStart: 'auto' }}/>
                         </View>))}
                     </View>}
                 </View>

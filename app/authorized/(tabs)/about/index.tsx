@@ -48,21 +48,22 @@ export default function AboutScreen() {
                 <View style={styles.li}>
                     <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
                     <StyledText><StyledText type="defaultSemiBold">Interaction: </StyledText>
-                         Any activity/indicator you do with a respondent is an interaction, and should be recorded
-                        so that your organization can track its activities and progress towards targets.
+                        Any assessment you complete with a respondent, or an "interaction" you have with them,
+                        is considered an "interaction". You can have multiple interactions with the same respondent,
+                        even at the same time, if applicable.
                     </StyledText>
                 </View>
                 <View style={styles.li}>
                     <StyledText style={styles.bullet}>{'\u2022'}</StyledText> 
                     <StyledText><StyledText type="defaultSemiBold">Task: </StyledText>
-                        A task is an indicator that your organization has been assigned to track.
+                        A task is an assessment that your organization has been assigned to complete with respondents.
                     </StyledText>
                 </View>
             </View>
             <View style={styles.card}>
                 <StyledText type="subtitle" style={{marginBottom: 15}}>Can I use this offline?</StyledText>
                 <StyledText>
-                    Yes! You can absolutely use this app online. Your data will be uploaded once you gain connection again. 
+                    Yes! You can absolutely use this app offline. Your data will be uploaded once you gain connection again. 
                     This should happen automatically, but you can also press the sync button at the top of the screen.
                     A few things to note about offline use:
                 </StyledText>
@@ -78,6 +79,7 @@ export default function AboutScreen() {
                     </StyledText>
                 </View>
             </View>
+            <View style={{ padding: 20 }}></View>
         </StyledScroll>
     );
 }

@@ -71,7 +71,7 @@ export default async function saveTasks(data){
                 indicator_order: ind.order,
                 assessment: ass.id,
             }
-            Indicator.save(indicator)
+            await Indicator.save(indicator)
             //save options if applicable
             if(['multi', 'single', 'multint'].includes(ind.type) && ind.options?.length > 0 && !ind.match_options){
                 for(const o of ind.options){
@@ -80,7 +80,7 @@ export default async function saveTasks(data){
                         name: o.name,
                         indicator: ind.id
                     }
-                    Option.save(option)
+                    await Option.save(option)
                 }
             }
 
@@ -91,7 +91,8 @@ export default async function saveTasks(data){
                     indicator: ind.id,
                     group_operator: ind.logic.group_operator
                 }
-                LogicGroup.save(logic_group);
+                await LogicGroup.save(logic_group);
+
                 for(const c of ind.logic.conditions){
                     const condition = {
                         logic_group: ind.logic.id,
@@ -104,7 +105,7 @@ export default async function saveTasks(data){
                         value_boolean: c.value_boolean ? 1 : 0,
                         condition_type: c.condition_type,
                     }
-                    LogicCondition.save(condition);
+                    await LogicCondition.save(condition);
                 }
             }
         }
